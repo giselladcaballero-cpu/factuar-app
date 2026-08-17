@@ -1,0 +1,7 @@
+{
+  "name": "FactuAR",
+  "description": "Facturación automática integrada entre Mercado Pago / Mercado Libre y ARCA (ex AFIP) WSFE v1 con gestión de CAE y tickets de acceso WSAA.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
