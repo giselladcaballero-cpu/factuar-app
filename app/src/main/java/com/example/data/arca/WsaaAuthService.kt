@@ -46,9 +46,12 @@ class WsaaAuthService(
 ) {
 
     init {
-        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
-            Security.addProvider(BouncyCastleProvider())
-        }
+        // Android ships its own stripped-down "BC" provider (from Conscrypt),
+        // which doesn't support the signature algorithms we need. It must be
+        // removed before installing the full BouncyCastle provider under the
+        // same name, otherwise Security.addProvider() is a silent no-op.
+        Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME)
+        Security.insertProviderAt(BouncyCastleProvider(), 1)
     }
 
     private val wsaaHomoUrl = "https://wsaahomo.afip.gov.ar/ws/services/LoginCms"
