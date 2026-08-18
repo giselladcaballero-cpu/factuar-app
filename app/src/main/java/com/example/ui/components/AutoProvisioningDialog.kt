@@ -199,9 +199,40 @@ fun AutoProvisioningDialog(
                     }
 
                     csr.isReady -> {
-                        // Step 2: CSR generated, show it + instructions, then collect the certificate.
+                        // Homologación shortcut: ARCA's testing WSAA accepts a
+                        // self-signed certificate, no trip to the ARCA portal needed.
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MpGreen.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                                .border(1.dp, MpGreen.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                                .padding(12.dp),
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = "¿Solo vas a probar en Homologación?",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "ARCA Homologación acepta un certificado autofirmado para testing — no hace falta pasar por el portal de ARCA.",
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Button(
+                                    onClick = { onSaveCertificate(csr.selfSignedCertPem) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MpGreen)
+                                ) {
+                                    Text("Usar Certificado Autofirmado (Homologación)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                            }
+                        }
+
                         Text(
-                            text = "1. Copiá este CSR y subilo en ARCA",
+                            text = "O, para Producción: 1. Copiá este CSR y subilo en ARCA",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -253,7 +284,8 @@ fun AutoProvisioningDialog(
                         Text(
                             text = "2. Pegá acá el certificado que te dio ARCA",
                             fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(top = 8.dp)
                         )
                         OutlinedTextField(
                             value = certInput,

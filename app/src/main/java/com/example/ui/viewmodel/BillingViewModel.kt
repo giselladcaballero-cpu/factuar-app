@@ -52,6 +52,7 @@ data class CsrUiState(
     val isReady: Boolean = false,
     val csrPem: String = "",
     val privateKeyPem: String = "",
+    val selfSignedCertPem: String = "",
     val cuit: Long = 0L,
     val razonSocial: String = "",
     val isSaved: Boolean = false,
@@ -308,6 +309,7 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
                                 isReady = true,
                                 csrPem = status.csrPem,
                                 privateKeyPem = status.privateKeyPem,
+                                selfSignedCertPem = status.selfSignedCertPem,
                                 cuit = status.cuit,
                                 razonSocial = status.razonSocial
                             )

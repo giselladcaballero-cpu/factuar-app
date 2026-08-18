@@ -16,7 +16,8 @@ sealed class CsrGenerationStatus {
         val cuit: Long,
         val razonSocial: String,
         val csrPem: String,
-        val privateKeyPem: String
+        val privateKeyPem: String,
+        val selfSignedCertPem: String
     ) : CsrGenerationStatus()
 
     data class Error(
@@ -64,6 +65,7 @@ class CsrGenerationClient(
                 )
             )
             val csrPem = provisioningService.generateCsrPem(cuit, razonSocial, keyPair)
+            val selfSignedCertPem = provisioningService.generateSelfSignedCertificatePem(cuit, razonSocial, keyPair)
             delay(150)
 
             emit(
@@ -71,7 +73,8 @@ class CsrGenerationClient(
                     cuit = cuit,
                     razonSocial = razonSocial.ifBlank { "Contribuyente CUIT $cuit" },
                     csrPem = csrPem,
-                    privateKeyPem = privateKeyPem
+                    privateKeyPem = privateKeyPem,
+                    selfSignedCertPem = selfSignedCertPem
                 )
             )
         } catch (e: Exception) {

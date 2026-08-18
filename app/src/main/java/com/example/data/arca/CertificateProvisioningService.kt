@@ -4,16 +4,21 @@ import android.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.bouncycastle.asn1.x500.X500Name
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter
+import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder
 import org.bouncycastle.pkcs.PKCS10CertificationRequest
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder
+import java.math.BigInteger
 import java.security.KeyPair
 import java.security.KeyPairGenerator
 import java.security.PrivateKey
 import java.security.PublicKey
 import java.security.SecureRandom
 import java.security.Security
+import java.security.cert.X509Certificate
+import java.util.Date
 
 /**
  * Local Cryptographic Key & CSR Generation Service for ARCA (AFIP).
@@ -81,4 +86,41 @@ class CertificateProvisioningService {
         val chunks = encoded.chunked(64).joinToString("\n")
         "-----BEGIN CERTIFICATE REQUEST-----\n$chunks\n-----END CERTIFICATE REQUEST-----"
     }
+
+    /**
+     * Generates a self-signed X.509 certificate for ARCA WSAA Homologación.
+     * Unlike Producción (which requires a certificate issued by ARCA's real
+     * CA via CSR upload), Homologación accepts a self-signed certificate for
+     * testing — no trip to the ARCA portal needed.
+     */
+    suspend fun generateSelfSignedCertificatePem(cuit: Long, razonSocial: String, keyPair: KeyPair): String =
+        withContext(Dispatchers.Default) {
+            val cleanRazon = razonSocial.ifBlank { "Contribuyente" }.replace(",", " ").replace("=", " ")
+            val subject = X500Name("C=AR,O=$cleanRazon,CN=$cleanRazon,SERIALNUMBER=CUIT $cuit")
+
+            val now = System.currentTimeMillis()
+            val notBefore = Date(now - 24 * 60 * 60 * 1000L)
+            val notAfter = Date(now + 730L * 24 * 60 * 60 * 1000L) // ~2 years
+
+            val certBuilder = JcaX509v3CertificateBuilder(
+                subject, // issuer == subject: self-signed
+                BigInteger.valueOf(now),
+                notBefore,
+                notAfter,
+                subject,
+                keyPair.public
+            )
+
+            val contentSigner = JcaContentSignerBuilder("SHA256withRSA")
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .build(keyPair.private)
+
+            val certificate: X509Certificate = JcaX509CertificateConverter()
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .getCertificate(certBuilder.build(contentSigner))
+
+            val encoded = Base64.encodeToString(certificate.encoded, Base64.NO_WRAP)
+            val chunks = encoded.chunked(64).joinToString("\n")
+            "-----BEGIN CERTIFICATE-----\n$chunks\n-----END CERTIFICATE-----"
+        }
 }
