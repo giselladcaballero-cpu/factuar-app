@@ -131,13 +131,19 @@ class WsaaAuthService(
 
     /**
      * Signs the TRA XML into a real CMS/PKCS#7 SignedData envelope (encapsulated
-     * content, SHA256withRSA), the format ARCA's WSAA loginCms operation expects.
+     * content), the format ARCA's WSAA loginCms operation expects.
+     *
+     * Uses SHA1withRSA rather than SHA256withRSA: ARCA's WSAA CMS verifier
+     * predates SHA-256 signing and was only ever validated against SHA-1.
+     * Using SHA-256 here produces the same generic "Certificado no emitido
+     * por AC de confianza" error WSAA returns for any CMS it can't parse,
+     * which is misleading — it isn't really about certificate trust.
      */
     private fun signTraCms(traXml: String, certPem: String, keyPem: String): String {
         val privateKey = parsePrivateKeyPem(keyPem)
         val certificate = parseCertificatePem(certPem)
 
-        val contentSigner = JcaContentSignerBuilder("SHA256withRSA")
+        val contentSigner = JcaContentSignerBuilder("SHA1withRSA")
             .setProvider(BouncyCastleProvider.PROVIDER_NAME)
             .build(privateKey)
 
