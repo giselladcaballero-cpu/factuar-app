@@ -90,9 +90,10 @@ class WsaaAuthService(
                 if (response.isSuccessful && responseBody.contains("<token>")) {
                     return@withContext parseLoginTicketResponse(responseBody)
                 }
+                val certDebugInfo = describeCertificateForDebug(config.certCrtPem)
                 return@withContext WsaaTicketResult(
                     success = false,
-                    errorMessage = "WSAA respondió HTTP ${response.code}: ${extractSoapFault(responseBody).ifBlank { responseBody.take(500) }}"
+                    errorMessage = "WSAA respondió HTTP ${response.code}: ${extractSoapFault(responseBody).ifBlank { responseBody.take(500) }} | $certDebugInfo"
                 )
             }
         } catch (e: Exception) {
@@ -100,6 +101,22 @@ class WsaaAuthService(
                 success = false,
                 errorMessage = "Error autenticando con WSAA: ${e.message}"
             )
+        }
+    }
+
+    /**
+     * Describes the certificate actually used for this request (subject,
+     * issuer, validity), so a WSAA rejection can be cross-checked against
+     * what the app is really sending — not just assumed from what was pasted.
+     */
+    private fun describeCertificateForDebug(certPem: String): String {
+        return try {
+            val certificate = parseCertificatePem(certPem)
+            "Cert usado -> Subject: ${certificate.subjectX500Principal.name} | " +
+                "Issuer: ${certificate.issuerX500Principal.name} | " +
+                "Válido: ${certificate.notBefore} a ${certificate.notAfter}"
+        } catch (e: Exception) {
+            "No se pudo leer el certificado configurado para diagnóstico: ${e.message}"
         }
     }
 
@@ -217,7 +234,14 @@ class WsaaAuthService(
 
     private fun extractSoapFault(xml: String): String {
         if (!xml.contains("faultstring")) return ""
-        return xml.substringAfter("<faultstring>").substringBefore("</faultstring>")
+        val faultCode = xml.substringAfter("<faultcode>", "").substringBefore("</faultcode>")
+        val faultString = xml.substringAfter("<faultstring>").substringBefore("</faultstring>")
+        val detail = xml.substringAfter("<detail>", "").substringBefore("</detail>").trim()
+        return buildString {
+            if (faultCode.isNotBlank()) append("[$faultCode] ")
+            append(faultString)
+            if (detail.isNotBlank()) append(" | detail: $detail")
+        }
     }
 
     private fun parsePrivateKeyPem(pem: String): PrivateKey {
