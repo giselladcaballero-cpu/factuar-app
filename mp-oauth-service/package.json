@@ -1,0 +1,6 @@
+{
+  "name": "factuar-mp-oauth",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Serverless OAuth bridge between Mercado Pago and the FactuAR Android app."
+}

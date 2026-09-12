@@ -489,6 +489,31 @@ class BillingRepository(
     }
 
     /**
+     * Persists a Mercado Pago connection already established via the OAuth
+     * bridge (mp-oauth-service): the bridge exchanged the code and confirmed
+     * the account server-side, so there's nothing left to validate here.
+     */
+    suspend fun saveMercadoPagoConnection(accessToken: String, userId: Long, userName: String) = withContext(Dispatchers.IO) {
+        val resolvedName = userName.ifBlank { "Cuenta $userId" }
+        val current = getConfig()
+        val updated = current.copy(
+            isMpConnected = true,
+            mpUserName = resolvedName,
+            mpCollectorId = userId,
+            mpAccessToken = accessToken
+        )
+        configDao.insertOrUpdateConfig(updated)
+        auditLogDao.insertLog(
+            AuditLogEntity(
+                eventType = "MP_OAUTH_CONNECTED",
+                title = "Mercado Pago Vinculado (OAuth)",
+                message = "Cuenta vinculada: $resolvedName (ID: $userId).",
+                severity = LogSeverity.SUCCESS
+            )
+        )
+    }
+
+    /**
      * Validates a Mercado Pago personal Access Token against the real API and,
      * if valid, links the returned account to this app.
      */

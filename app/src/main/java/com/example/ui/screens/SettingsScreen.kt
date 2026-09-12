@@ -92,6 +92,7 @@ fun SettingsScreen(
     onGenerateCsr: (cuit: Long, razonSocial: String) -> Unit,
     onSaveArcaCertificate: (certPem: String) -> Unit,
     onOpenMpOAuth: () -> Unit,
+    onOpenMpManual: () -> Unit,
     onCloseMpOAuth: () -> Unit,
     onConnectMp: (accessToken: String) -> Unit,
     onDisconnectMp: () -> Unit,
@@ -113,6 +114,7 @@ fun SettingsScreen(
 
     var showManualArcaKeys by remember { mutableStateOf(false) }
     var showDelegationGuide by remember { mutableStateOf(false) }
+    var showMpManualToken by remember { mutableStateOf(false) }
 
     // Dialogs
     if (state.csr.showDialog) {
@@ -526,7 +528,7 @@ fun SettingsScreen(
                     }
                 }
 
-                // 1-Click OAuth Button
+                // 1-Click OAuth Button — opens Mercado Pago's own consent screen
                 Button(
                     onClick = onOpenMpOAuth,
                     modifier = Modifier.fillMaxWidth(),
@@ -536,10 +538,45 @@ fun SettingsScreen(
                     Icon(imageVector = Icons.Default.Link, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (state.config.isMpConnected) "Reemplazar Access Token" else "Conectar con Access Token",
+                        text = if (state.config.isMpConnected) "Reconectar con Mercado Pago" else "Conectar con Mercado Pago",
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp
                     )
+                }
+
+                // Manual fallback (accountants / troubleshooting)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showMpManualToken = !showMpManualToken }
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(imageVector = Icons.Default.Key, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Modo Manual (pegar Access Token)",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Icon(
+                        imageVector = if (showMpManualToken) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                AnimatedVisibility(visible = showMpManualToken) {
+                    OutlinedButton(
+                        onClick = onOpenMpManual,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Pegar Access Token manualmente", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
 
                 if (state.config.isMpConnected) {

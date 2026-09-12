@@ -357,6 +357,19 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         _mpConnectUiState.value = MpConnectUiState(showDialog = false)
     }
 
+    /**
+     * Called when the OAuth deep link (factuar://mp-connected) comes back
+     * from the Mercado Pago bridge with an already-validated access token —
+     * no need to call the MP API again, just persist it.
+     */
+    fun completeMercadoPagoOAuth(accessToken: String, userId: Long, name: String) {
+        viewModelScope.launch {
+            repository.saveMercadoPagoConnection(accessToken, userId, name)
+            _mpConnectUiState.value = MpConnectUiState(showDialog = false)
+            _statusMessage.value = "Mercado Pago conectado correctamente"
+        }
+    }
+
     fun connectMercadoPago(accessToken: String) {
         viewModelScope.launch {
             _mpConnectUiState.update { it.copy(isConnecting = true, error = null) }

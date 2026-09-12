@@ -1,9 +1,12 @@
 package com.example
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -74,15 +77,56 @@ import com.example.ui.theme.MpGreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.BillingViewModel
 
+/**
+ * Base URL of the FactuAR Mercado Pago OAuth bridge (a small serverless
+ * function that holds the Client Secret so it never lives on-device). See
+ * mp-oauth-service/ in the repo root.
+ */
+private const val MP_OAUTH_SERVICE_URL = "https://factuar-mp-oauth.vercel.app"
+
 class MainActivity : ComponentActivity() {
+    private val viewModel: BillingViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        handleMpOAuthIntent(intent)
         setContent {
             MyApplicationTheme {
-                BillingApp()
+                BillingApp(viewModel = viewModel, onOpenMpOAuth = { openMercadoPagoOAuth() })
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleMpOAuthIntent(intent)
+    }
+
+    /**
+     * Opens Mercado Pago's real consent screen in the browser. The user
+     * approves with their own account there; Mercado Pago redirects to our
+     * Vercel bridge, which exchanges the code for a token and bounces back
+     * to this app via the factuar://mp-connected deep link.
+     */
+    private fun openMercadoPagoOAuth() {
+        val state = java.util.UUID.randomUUID().toString()
+        val uri = Uri.parse("$MP_OAUTH_SERVICE_URL/api/mp-authorize").buildUpon()
+            .appendQueryParameter("state", state)
+            .build()
+        startActivity(Intent(Intent.ACTION_VIEW, uri))
+    }
+
+    private fun handleMpOAuthIntent(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if (uri.scheme != "factuar" || uri.host != "mp-connected") return
+
+        val accessToken = uri.getQueryParameter("access_token")
+        if (accessToken.isNullOrBlank()) return
+        val userId = uri.getQueryParameter("user_id")?.toLongOrNull() ?: 0L
+        val name = uri.getQueryParameter("name").orEmpty()
+        viewModel.completeMercadoPagoOAuth(accessToken, userId, name)
     }
 }
 
@@ -95,7 +139,8 @@ data class NavItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BillingApp(
-    viewModel: BillingViewModel = viewModel()
+    viewModel: BillingViewModel = viewModel(),
+    onOpenMpOAuth: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -279,7 +324,8 @@ fun BillingApp(
                     onSaveArcaCertificate = { certPem ->
                         viewModel.saveArcaCertificate(certPem)
                     },
-                    onOpenMpOAuth = { viewModel.openMpTokenDialog() },
+                    onOpenMpOAuth = onOpenMpOAuth,
+                    onOpenMpManual = { viewModel.openMpTokenDialog() },
                     onCloseMpOAuth = { viewModel.closeMpTokenDialog() },
                     onConnectMp = { accessToken ->
                         viewModel.connectMercadoPago(accessToken)
