@@ -497,6 +497,15 @@ class BillingRepository(
             )
             Result.success(creditNote)
         } catch (e: Exception) {
+            val errorMsg = e.message ?: "Error desconocido emitiendo Nota de Crédito"
+            auditLogDao.insertLog(
+                AuditLogEntity(
+                    eventType = "WSFE_NC_EXCEPTION",
+                    title = "Excepción emitiendo Nota de Crédito",
+                    message = errorMsg,
+                    severity = LogSeverity.ERROR
+                )
+            )
             Result.failure(e)
         }
     }

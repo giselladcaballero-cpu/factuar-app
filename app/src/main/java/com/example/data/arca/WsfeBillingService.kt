@@ -234,6 +234,13 @@ class WsfeBillingService(
 
     private fun extractSoapFault(xml: String): String {
         if (!xml.contains("faultstring")) return ""
-        return xml.substringAfter("<faultstring>").substringBefore("</faultstring>")
+        val faultCode = xml.substringAfter("<faultcode>", "").substringBefore("</faultcode>")
+        val faultString = xml.substringAfter("<faultstring>").substringBefore("</faultstring>")
+        val detail = xml.substringAfter("<detail>", "").substringBefore("</detail>").trim()
+        return buildString {
+            if (faultCode.isNotBlank()) append("[$faultCode] ")
+            append(faultString)
+            if (detail.isNotBlank()) append(" | detail: $detail")
+        }
     }
 }
