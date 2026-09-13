@@ -12,9 +12,22 @@ data class ArcaIvaItem(
     val importe: Double
 )
 
+/**
+ * Reference to the original voucher a Nota de Crédito/Débito cancels or
+ * adjusts. ARCA requires this so the correction is linked to the original
+ * comprobante, not just a free-floating document with the same amount.
+ */
+data class ArcaCbteAsociado(
+    val tipo: Int,
+    val ptoVta: Int,
+    val nro: Long,
+    val cuit: Long,
+    val cbteFch: String? = null
+)
+
 data class WsfeVoucherRequest(
     val ptoVta: Int,
-    val cbteTipo: Int, // 1: Factura A, 6: Factura B, 11: Factura C
+    val cbteTipo: Int, // 1: Factura A, 6: Factura B, 11: Factura C, 3/8/13: Notas de Crédito A/B/C
     val concepto: Int, // 1: Productos, 2: Servicios, 3: Productos y Servicios
     val docTipo: Int,  // 80: CUIT, 96: DNI, 99: Consumidor Final
     val docNro: Long,
@@ -32,7 +45,8 @@ data class WsfeVoucherRequest(
     val fchVtoPago: String? = null,
     val monId: String = "PES",
     val monCotiz: Double = 1.0,
-    val ivaItems: List<ArcaIvaItem> = emptyList()
+    val ivaItems: List<ArcaIvaItem> = emptyList(),
+    val cbtesAsociados: List<ArcaCbteAsociado> = emptyList()
 )
 
 data class WsfeVoucherResponse(

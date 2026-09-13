@@ -136,6 +136,26 @@ class WsfeBillingService(
             ""
         }
 
+        // Links a Nota de Crédito/Débito to the original comprobante it
+        // corrects — required by ARCA, and must appear after MonCotiz and
+        // before Iva per the WSFEv1 XSD element order.
+        val cbtesAsocXml = if (req.cbtesAsociados.isNotEmpty()) {
+            val items = req.cbtesAsociados.joinToString("\n") { asoc ->
+                """
+                <CbteAsoc>
+                    <Tipo>${asoc.tipo}</Tipo>
+                    <PtoVta>${asoc.ptoVta}</PtoVta>
+                    <Nro>${asoc.nro}</Nro>
+                    <Cuit>${asoc.cuit}</Cuit>
+                    ${asoc.cbteFch?.let { "<CbteFch>$it</CbteFch>" } ?: ""}
+                </CbteAsoc>
+                """.trimIndent()
+            }
+            "<CbtesAsoc>\n$items\n</CbtesAsoc>"
+        } else {
+            ""
+        }
+
         return """
             <?xml version="1.0" encoding="utf-8"?>
             <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
@@ -169,6 +189,7 @@ class WsfeBillingService(
                         $serviciosFechas
                         <MonId>${req.monId}</MonId>
                         <MonCotiz>${String.format(Locale.US, "%.1f", req.monCotiz)}</MonCotiz>
+                        $cbtesAsocXml
                         $ivaXml
                       </FECAEDetRequest>
                     </FeDetReq>

@@ -307,7 +307,8 @@ fun BillingApp(
 
                 2 -> InvoiceDetailScreen(
                     state = state,
-                    onBack = { viewModel.selectTab(1) }
+                    onBack = { viewModel.selectTab(1) },
+                    onEmitCreditNote = { viewModel.emitCreditNote(it) }
                 )
 
                 3 -> SettingsScreen(

@@ -65,6 +65,7 @@ import java.util.Locale
 fun InvoiceDetailScreen(
     state: BillingUiState,
     onBack: () -> Unit,
+    onEmitCreditNote: (InvoiceEntity) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -478,6 +479,21 @@ fun InvoiceDetailScreen(
                 Icon(imageVector = Icons.Default.Link, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text("Copiar QR URL", fontSize = 12.sp)
+            }
+        }
+
+        val isOriginalInvoice = invoice.cbteTipo == 1 || invoice.cbteTipo == 6 || invoice.cbteTipo == 11
+        if (isOriginalInvoice) {
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = { onEmitCreditNote(invoice) },
+                enabled = !state.isProcessing,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+            ) {
+                Text("Anular con Nota de Crédito", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }

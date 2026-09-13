@@ -226,6 +226,22 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun emitCreditNote(invoice: InvoiceEntity) {
+        viewModelScope.launch {
+            _isProcessing.value = true
+            _statusMessage.value = "Emitiendo Nota de Crédito en ARCA..."
+            val res = repository.emitCreditNoteForInvoice(invoice.id)
+            _isProcessing.value = false
+            if (res.isSuccess) {
+                val nc = res.getOrNull()
+                _selectedInvoice.value = nc
+                _statusMessage.value = "Nota de Crédito emitida con éxito. CAE: ${nc?.cae}"
+            } else {
+                _statusMessage.value = "Error en ARCA: ${res.exceptionOrNull()?.message}"
+            }
+        }
+    }
+
     fun retryInvoice(payment: PaymentEntity) {
         viewModelScope.launch {
             _isProcessing.value = true

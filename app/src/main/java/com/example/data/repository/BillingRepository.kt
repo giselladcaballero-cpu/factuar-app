@@ -1,5 +1,6 @@
 package com.example.data.repository
 
+import com.example.data.arca.ArcaCbteAsociado
 import com.example.data.arca.ArcaIvaItem
 import com.example.data.arca.ArcaQrGenerator
 import com.example.data.arca.CsrGenerationClient
@@ -347,6 +348,156 @@ class BillingRepository(
                 )
             )
             return@withContext Result.failure(e)
+        }
+    }
+
+    /**
+     * Emits a Nota de Crédito that cancels a previously issued invoice,
+     * referencing it via CbtesAsoc as ARCA requires. The original comprobante
+     * can never be deleted (it's a real fiscal document once it has a CAE) —
+     * this is the correct way to void it.
+     */
+    suspend fun emitCreditNoteForInvoice(invoiceId: Long): Result<InvoiceEntity> = withContext(Dispatchers.IO) {
+        try {
+            val original = invoiceDao.getInvoiceById(invoiceId)
+                ?: return@withContext Result.failure(Exception("No se encontró el comprobante a anular"))
+
+            val ncCbteTipo = when (original.cbteTipo) {
+                1 -> 3   // Nota de Crédito A
+                6 -> 8   // Nota de Crédito B
+                11 -> 13 // Nota de Crédito C
+                else -> return@withContext Result.failure(
+                    Exception("No se puede emitir Nota de Crédito para el comprobante tipo ${original.cbteTipo}")
+                )
+            }
+            val ncCbteTipoNombre = when (ncCbteTipo) {
+                3 -> "Nota de Crédito A"
+                8 -> "Nota de Crédito B"
+                else -> "Nota de Crédito C"
+            }
+
+            val config = getConfig()
+            val authTicket = getOrRefreshAuthTicket(config)
+            if (!authTicket.isValid()) {
+                return@withContext Result.failure(Exception("No se pudo obtener Ticket de Acceso válido de ARCA WSAA"))
+            }
+
+            val isProd = config.environment.equals("PRODUCCION", ignoreCase = true)
+            val auth = WsfeAuth(token = authTicket.token, sign = authTicket.sign, cuit = config.cuitEmisor)
+
+            val lastNro = wsfeBillingService.getLastAuthorizedNumber(auth, original.ptoVta, ncCbteTipo, isProd)
+            val nextVoucherNro = lastNro + 1
+            val todayYyyyMmDd = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
+
+            val ivaItems = if (original.impIVA > 0) {
+                val ivaId = when (original.ivaAlicuota) {
+                    21.0 -> 5
+                    10.5 -> 4
+                    27.0 -> 6
+                    else -> 5
+                }
+                listOf(ArcaIvaItem(id = ivaId, baseImp = original.impNeto, importe = original.impIVA))
+            } else {
+                emptyList()
+            }
+
+            val voucherReq = WsfeVoucherRequest(
+                ptoVta = original.ptoVta,
+                cbteTipo = ncCbteTipo,
+                concepto = original.concepto,
+                docTipo = original.docTipo,
+                docNro = if (original.docTipo == 99) 0L else original.docNro,
+                cbteDesde = nextVoucherNro,
+                cbteHasta = nextVoucherNro,
+                cbteFch = todayYyyyMmDd,
+                impTotal = original.impTotal,
+                impTotConc = original.impTotConc,
+                impNeto = original.impNeto,
+                impOpEx = original.impOpEx,
+                impTrib = original.impTrib,
+                impIVA = original.impIVA,
+                ivaItems = ivaItems,
+                cbtesAsociados = listOf(
+                    ArcaCbteAsociado(
+                        tipo = original.cbteTipo,
+                        ptoVta = original.ptoVta,
+                        nro = original.cbteNro,
+                        cuit = config.cuitEmisor,
+                        cbteFch = original.cbteFch
+                    )
+                )
+            )
+
+            val wsfeResponse = wsfeBillingService.solicitarCae(auth, voucherReq, isProd)
+            if (wsfeResponse.resultado != "A" || wsfeResponse.cae.isNullOrBlank()) {
+                val errorMsg = wsfeResponse.errores.joinToString(" | ").ifBlank { "Rechazado por ARCA sin CAE" }
+                auditLogDao.insertLog(
+                    AuditLogEntity(
+                        eventType = "WSFE_NC_REJECTED",
+                        title = "Error emitiendo Nota de Crédito en ARCA",
+                        message = errorMsg,
+                        severity = LogSeverity.ERROR
+                    )
+                )
+                return@withContext Result.failure(Exception(errorMsg))
+            }
+
+            val cae = wsfeResponse.cae
+            val caeVto = wsfeResponse.caeFchVto ?: todayYyyyMmDd
+            val qrUrl = ArcaQrGenerator.generateQrUrl(
+                cuitEmisor = config.cuitEmisor,
+                ptoVta = original.ptoVta,
+                tipoCmp = ncCbteTipo,
+                nroCmp = nextVoucherNro,
+                fechaYyyyMmDd = todayYyyyMmDd,
+                importe = original.impTotal,
+                tipoDocRec = original.docTipo,
+                nroDocRec = if (original.docTipo == 99) 0L else original.docNro,
+                cae = cae
+            )
+
+            val creditNote = InvoiceEntity(
+                paymentId = original.paymentId,
+                cbteTipo = ncCbteTipo,
+                cbteTipoNombre = ncCbteTipoNombre,
+                ptoVta = original.ptoVta,
+                cbteNro = nextVoucherNro,
+                concepto = original.concepto,
+                docTipo = original.docTipo,
+                docTipoNombre = original.docTipoNombre,
+                docNro = original.docNro,
+                receptorNombre = original.receptorNombre,
+                receptorCondicionIva = original.receptorCondicionIva,
+                receptorEmail = original.receptorEmail,
+                cbteFch = todayYyyyMmDd,
+                impTotal = original.impTotal,
+                impTotConc = original.impTotConc,
+                impNeto = original.impNeto,
+                impOpEx = original.impOpEx,
+                impTrib = original.impTrib,
+                impIVA = original.impIVA,
+                ivaAlicuota = original.ivaAlicuota,
+                cae = cae,
+                caeFchVto = caeVto,
+                resultado = "A",
+                observaciones = "Anula ${original.cbteTipoNombre} N° ${"%04d-%08d".format(original.ptoVta, original.cbteNro)}",
+                qrCodeData = qrUrl,
+                environment = config.environment,
+                itemsDescription = "Anulación: ${original.itemsDescription}"
+            )
+            invoiceDao.insertInvoice(creditNote)
+
+            auditLogDao.insertLog(
+                AuditLogEntity(
+                    eventType = "WSFE_NC_ISSUED",
+                    title = "$ncCbteTipoNombre N° ${"%04d-%08d".format(original.ptoVta, nextVoucherNro)} Emitida",
+                    message = "CAE: $cae | Anula ${original.cbteTipoNombre} N° ${"%04d-%08d".format(original.ptoVta, original.cbteNro)}",
+                    severity = LogSeverity.SUCCESS
+                )
+            )
+            Result.success(creditNote)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
