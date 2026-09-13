@@ -244,23 +244,41 @@ class WsaaAuthService(
         }
     }
 
+    /**
+     * Keeps only real Base64 alphabet characters. Pasting PEM text from a
+     * phone's clipboard (e.g. copied out of a chat app) can silently insert
+     * non-breaking spaces or other invisible characters that `\s` in a regex
+     * doesn't match, which corrupts the Base64 payload and fails with a
+     * cryptic "bad base-64" error. Filtering to the allowed alphabet instead
+     * of trying to strip "whitespace" is robust to any such invisible junk.
+     */
+    private fun extractBase64Body(pem: String, vararg markers: String): String {
+        var body = pem
+        for (marker in markers) {
+            body = body.replace(marker, "")
+        }
+        return body.filter { it.isLetterOrDigit() || it == '+' || it == '/' || it == '=' }
+    }
+
     private fun parsePrivateKeyPem(pem: String): PrivateKey {
-        val cleanPem = pem
-            .replace("-----BEGIN PRIVATE KEY-----", "")
-            .replace("-----END PRIVATE KEY-----", "")
-            .replace("-----BEGIN RSA PRIVATE KEY-----", "")
-            .replace("-----END RSA PRIVATE KEY-----", "")
-            .replace("\\s".toRegex(), "")
+        val cleanPem = extractBase64Body(
+            pem,
+            "-----BEGIN PRIVATE KEY-----",
+            "-----END PRIVATE KEY-----",
+            "-----BEGIN RSA PRIVATE KEY-----",
+            "-----END RSA PRIVATE KEY-----"
+        )
         val keyBytes = Base64.decode(cleanPem, Base64.DEFAULT)
         val spec = PKCS8EncodedKeySpec(keyBytes)
         return KeyFactory.getInstance("RSA").generatePrivate(spec)
     }
 
     private fun parseCertificatePem(pem: String): X509Certificate {
-        val cleanPem = pem
-            .replace("-----BEGIN CERTIFICATE-----", "")
-            .replace("-----END CERTIFICATE-----", "")
-            .replace("\\s".toRegex(), "")
+        val cleanPem = extractBase64Body(
+            pem,
+            "-----BEGIN CERTIFICATE-----",
+            "-----END CERTIFICATE-----"
+        )
         val certBytes = Base64.decode(cleanPem, Base64.DEFAULT)
         val cf = CertificateFactory.getInstance("X.509")
         return cf.generateCertificate(ByteArrayInputStream(certBytes)) as X509Certificate
