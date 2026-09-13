@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "FactuAR"
+rootProject.name = "Vektor Go"
 
 include(":app")

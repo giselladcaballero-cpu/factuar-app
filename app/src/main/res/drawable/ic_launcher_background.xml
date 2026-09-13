@@ -5,25 +5,35 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Deep Royal Blue gradient from top-left to bottom-right -->
     <path
         android:pathData="M0,0h108v108h-108z">
         <aapt:attr name="android:fillColor">
             <gradient
-                android:startX="0"
-                android:startY="0"
-                android:endX="108"
-                android:endY="108"
+                android:startX="10"
+                android:startY="10"
+                android:endX="98"
+                android:endY="98"
                 android:type="linear">
-                <item android:offset="0.0" android:color="#0D1B2A" />
-                <item android:offset="0.5" android:color="#1B263B" />
-                <item android:offset="1.0" android:color="#006699" />
+                <item android:offset="0.0" android:color="#2255A4" />
+                <item android:offset="0.4" android:color="#1B3E8F" />
+                <item android:offset="1.0" android:color="#16307A" />
             </gradient>
         </aapt:attr>
     </path>
-    <!-- Subtle grid overlay -->
+    <!-- Subtle glassy sheen highlight on top corner -->
     <path
-        android:pathData="M0,27h108 M0,54h108 M0,81h108 M27,0v108 M54,0v108 M81,0v108"
-        android:strokeWidth="0.5"
-        android:strokeColor="#1AFFFFFF" />
+        android:pathData="M15,15 L93,15 C95,15 97,17 97,19 L97,45 L15,15 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="15"
+                android:startY="15"
+                android:endX="60"
+                android:endY="45"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#33FFFFFF" />
+                <item android:offset="1.0" android:color="#00FFFFFF" />
+            </gradient>
+        </aapt:attr>
+    </path>
 </vector>
-

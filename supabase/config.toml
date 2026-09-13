@@ -1,0 +1,7 @@
+project_id = "vektor-go"
+
+[functions.mp-authorize]
+verify_jwt = false
+
+[functions.mp-callback]
+verify_jwt = false
