@@ -1,48 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Invoice document body -->
+    <!-- Stylized Sharp Letter 'V' in pure white with right notch connecting to waves -->
+    <!-- Left slant and bottom apex and right arm of the V -->
     <path
-        android:pathData="M34,22 L66,22 C68.2,22 70,23.8 70,26 L70,82 C70,84.2 68.2,86 66,86 L34,86 C31.8,86 30,84.2 30,82 L30,26 C30,23.8 31.8,22 34,22 Z"
-        android:fillColor="#F8FAFC" />
-
-    <!-- Invoice header strip (ARCA Blue) -->
-    <path
-        android:pathData="M30,26 C30,23.8 31.8,22 34,22 L66,22 C68.2,22 70,23.8 70,26 L70,36 L30,36 Z"
-        android:fillColor="#0284C7" />
-
-    <!-- Text Lines on invoice -->
-    <path
-        android:pathData="M38,44 H62 M38,50 H56 M38,56 H62 M38,62 H50"
-        android:strokeWidth="2.5"
-        android:strokeColor="#CBD5E1"
-        android:strokeLineCap="round" />
-
-    <!-- Barcode / QR placeholder at bottom -->
-    <path
-        android:pathData="M38,72 H42 M45,72 H51 M54,72 H56 M59,72 H62"
-        android:strokeWidth="4"
-        android:strokeColor="#94A3B8"
-        android:strokeLineCap="square" />
-
-    <!-- Lightning sync badge (Mercado Pago / Auto-Sync badge) at top-right -->
-    <path
-        android:pathData="M64,48 C72.8,48 80,55.2 80,64 C80,72.8 72.8,80 64,80 C55.2,80 48,72.8 48,64 C48,55.2 55.2,48 64,48 Z"
-        android:fillColor="#00A650" />
-
-    <!-- Lightning bolt inside green circle -->
-    <path
-        android:pathData="M65.5,53 L58,63 L63.5,63 L62,73 L71,61.5 L65.5,61.5 Z"
+        android:pathData="M27,34 L37,34 L49,63 L61,42 C59.8,40.8 59,39.2 59,37.5 C59,34.5 61.5,32 64.5,32 C67.5,32 70,34.5 70,37.5 C70,39.2 69.2,40.8 68,42 L52,74 L46,74 Z"
         android:fillColor="#FFFFFF" />
 
-    <!-- ARCA / AFIP checkmark badge at top left -->
+    <!-- Wave 1: Innermost Cyan Contactless / Signal Wave -->
     <path
-        android:pathData="M34,22 C34,20 36,18 39,18 H51 C54,18 56,20 56,22 L54,26 H36 Z"
-        android:fillColor="#0369A1" />
-</vector>
+        android:pathData="M65,47 C68.5,49 71,52.5 71,56.5 C71,60.5 68.5,64 65,66"
+        android:strokeWidth="3.5"
+        android:strokeColor="#34B8D4"
+        android:strokeLineCap="round" />
 
+    <!-- Wave 2: Middle Cyan Contactless / Signal Wave -->
+    <path
+        android:pathData="M70,42 C75.5,45.5 79,51.5 79,56.5 C79,61.5 75.5,67.5 70,71"
+        android:strokeWidth="3.5"
+        android:strokeColor="#5DD3E5"
+        android:strokeLineCap="round" />
+
+    <!-- Wave 3: Outermost Cyan Contactless / Signal Wave -->
+    <path
+        android:pathData="M75,37 C82.5,41.5 87,49 87,56.5 C87,64 82.5,71.5 75,76"
+        android:strokeWidth="3.5"
+        android:strokeColor="#94E4EF"
+        android:strokeLineCap="round" />
+
+</vector>

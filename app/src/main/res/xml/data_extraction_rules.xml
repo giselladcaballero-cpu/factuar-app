@@ -5,15 +5,18 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
+        <!--
+          vektor_go_secure.db holds the ARCA/AFIP signing private key (privateKeyPem),
+          the Mercado Pago access token, and the webhook secret in plaintext.
+          Never let it leave the device via cloud backup.
         -->
+        <exclude domain="database" path="vektor_go_secure.db" />
+        <exclude domain="database" path="vektor_go_secure.db-wal" />
+        <exclude domain="database" path="vektor_go_secure.db-shm" />
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="database" path="vektor_go_secure.db" />
+        <exclude domain="database" path="vektor_go_secure.db-wal" />
+        <exclude domain="database" path="vektor_go_secure.db-shm" />
     </device-transfer>
-    -->
 </data-extraction-rules>

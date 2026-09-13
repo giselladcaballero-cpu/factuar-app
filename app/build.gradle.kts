@@ -10,11 +10,11 @@ plugins {
 }
 
 android {
-  namespace = "com.example"
+  namespace = "com.vektorgo.app"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.factuar.mpwfqt"
+    applicationId = "com.vektorgo.app"
     minSdk = 24
     targetSdk = 36
     versionCode = 1
@@ -98,6 +98,9 @@ dependencies {
   // implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
+  implementation(libs.androidx.sqlite)
+  implementation(libs.sqlcipher.android)
+  implementation(libs.androidx.security.crypto)
   // implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
   implementation(libs.firebase.ai)
@@ -116,8 +119,6 @@ dependencies {
   implementation(libs.logging.interceptor)
   implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
-  implementation(libs.bouncycastle.bcpkix)
-  implementation(libs.bouncycastle.bcprov)
   // implementation(libs.play.services.location)
   implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)

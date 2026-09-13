@@ -1,0 +1,55 @@
+package com.vektorgo.app.data.arca
+
+data class WsfeAuth(
+    val token: String,
+    val sign: String,
+    val cuit: Long
+)
+
+data class ArcaIvaItem(
+    val id: Int, // 3: 0%, 4: 10.5%, 5: 21%, 6: 27%, 8: 5%, 9: 2.5%
+    val baseImp: Double,
+    val importe: Double
+)
+
+data class WsfeVoucherRequest(
+    val ptoVta: Int,
+    val cbteTipo: Int, // 1: Factura A, 6: Factura B, 11: Factura C
+    val concepto: Int, // 1: Productos, 2: Servicios, 3: Productos y Servicios
+    val docTipo: Int,  // 80: CUIT, 96: DNI, 99: Consumidor Final
+    val docNro: Long,
+    val cbteDesde: Long,
+    val cbteHasta: Long,
+    val cbteFch: String, // YYYYMMDD
+    val impTotal: Double,
+    val impTotConc: Double = 0.0,
+    val impNeto: Double,
+    val impOpEx: Double = 0.0,
+    val impTrib: Double = 0.0,
+    val impIVA: Double,
+    val fchServDesde: String? = null,
+    val fchServHasta: String? = null,
+    val fchVtoPago: String? = null,
+    val monId: String = "PES",
+    val monCotiz: Double = 1.0,
+    val ivaItems: List<ArcaIvaItem> = emptyList()
+)
+
+data class WsfeVoucherResponse(
+    val resultado: String, // "A" (Aprobado), "R" (Rechazado), "E" (Error)
+    val cae: String?,
+    val caeFchVto: String?,
+    val cbteNro: Long,
+    val observaciones: List<String> = emptyList(),
+    val errores: List<String> = emptyList(),
+    val rawSoapResponse: String = ""
+)
+
+data class WsaaTicketResult(
+    val success: Boolean,
+    val token: String = "",
+    val sign: String = "",
+    val generationTimeMillis: Long = 0L,
+    val expirationTimeMillis: Long = 0L,
+    val errorMessage: String? = null
+)
