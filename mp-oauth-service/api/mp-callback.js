@@ -60,6 +60,9 @@ export default async function handler(req, res) {
         grant_type: "authorization_code",
         code,
         redirect_uri: process.env.MP_REDIRECT_URI,
+        // PKCE: `state` is the code_verifier generated in mp-authorize.js,
+        // echoed back unchanged by Mercado Pago.
+        code_verifier: state,
       }),
     });
 
