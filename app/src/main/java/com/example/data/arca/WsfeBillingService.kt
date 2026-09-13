@@ -101,10 +101,26 @@ class WsfeBillingService(
         val responseBody = response.body?.string() ?: ""
 
         if (!response.isSuccessful) {
-            throw IOException("ARCA WSFE FECAESolicitar HTTP ${response.code}: ${extractSoapFault(responseBody).ifBlank { responseBody.take(500) }}")
+            val faultDetail = extractSoapFault(responseBody).ifBlank { responseBody.take(500) }
+            val diagnostic = if (faultDetail.isBlank()) {
+                // ARCA returned an empty body — likely a raw parser-level
+                // rejection before it could even build a SOAP Fault. Include
+                // the request we actually sent (credentials redacted) so the
+                // malformed XML can be spotted directly.
+                "(sin contenido) | Request enviado: ${redactAuthForLog(soapPayload).take(1500)}"
+            } else {
+                faultDetail
+            }
+            throw IOException("ARCA WSFE FECAESolicitar HTTP ${response.code}: $diagnostic")
         }
 
         parseFecaeResponse(responseBody, voucherReq.cbteDesde)
+    }
+
+    private fun redactAuthForLog(xml: String): String {
+        return xml
+            .replace(Regex("<Token>.*?</Token>"), "<Token>[redacted]</Token>")
+            .replace(Regex("<Sign>.*?</Sign>"), "<Sign>[redacted]</Sign>")
     }
 
     /**
