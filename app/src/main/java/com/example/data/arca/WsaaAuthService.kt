@@ -86,7 +86,12 @@ class WsaaAuthService(
                 .build()
 
             httpClient.newCall(request).execute().use { response ->
-                val responseBody = response.body?.string() ?: ""
+                // The WSDL types loginCmsReturn as xsd:string, so WSAA embeds
+                // the actual loginTicketResponse XML HTML-entity-escaped
+                // inside the SOAP body (e.g. "&lt;token&gt;" not "<token>").
+                // Unescape before checking/parsing, or a real success looks
+                // like a failure because "<token>" never literally appears.
+                val responseBody = unescapeXmlEntities(response.body?.string() ?: "")
                 if (response.isSuccessful && responseBody.contains("<token>")) {
                     return@withContext parseLoginTicketResponse(responseBody)
                 }
@@ -230,6 +235,15 @@ class WsaaAuthService(
                 errorMessage = "Error parseando respuesta de WSAA: ${e.message}"
             )
         }
+    }
+
+    private fun unescapeXmlEntities(xml: String): String {
+        return xml
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&apos;", "'")
+            .replace("&amp;", "&")
     }
 
     private fun extractSoapFault(xml: String): String {
