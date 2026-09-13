@@ -107,7 +107,7 @@ class WsfeBillingService(
                 // rejection before it could even build a SOAP Fault. Include
                 // the request we actually sent (credentials redacted) so the
                 // malformed XML can be spotted directly.
-                "(sin contenido) | Request enviado: ${redactAuthForLog(soapPayload).take(1500)}"
+                "(sin contenido) | Request enviado: ${compactXmlForLog(redactAuthForLog(soapPayload))}"
             } else {
                 faultDetail
             }
@@ -115,6 +115,19 @@ class WsfeBillingService(
         }
 
         parseFecaeResponse(responseBody, voucherReq.cbteDesde)
+    }
+
+    /**
+     * Strips blank lines and leading whitespace so the FeDetReq body (the
+     * part that actually varies and is worth inspecting) isn't pushed past
+     * the log's display limit by the fixed SOAP envelope boilerplate.
+     */
+    private fun compactXmlForLog(xml: String): String {
+        return xml.lines()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .joinToString(" ")
+            .take(3000)
     }
 
     private fun redactAuthForLog(xml: String): String {
