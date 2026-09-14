@@ -71,6 +71,7 @@ import com.vektorgo.app.ui.screens.AuditLogsScreen
 import com.vektorgo.app.ui.screens.DashboardScreen
 import com.vektorgo.app.ui.screens.InvoiceDetailScreen
 import com.vektorgo.app.ui.screens.SettingsScreen
+import com.vektorgo.app.ui.screens.SubscriptionPaywallScreen
 import com.vektorgo.app.ui.screens.TransactionsScreen
 import com.vektorgo.app.ui.theme.ArcaBlue
 import com.vektorgo.app.ui.theme.MpBlue
@@ -103,7 +104,11 @@ class MainActivity : ComponentActivity() {
                 if (showSplash) {
                     com.vektorgo.app.ui.screens.VektorSplashScreen(onFinished = { showSplash = false })
                 } else {
-                    BillingApp(viewModel = viewModel, onOpenMpOAuth = { openMercadoPagoOAuth() })
+                    BillingApp(
+                        viewModel = viewModel,
+                        onOpenMpOAuth = { openMercadoPagoOAuth() },
+                        onOpenSubscriptionCheckout = { openSubscriptionCheckout() }
+                    )
                 }
             }
         }
@@ -126,15 +131,35 @@ class MainActivity : ComponentActivity() {
         startActivity(Intent(Intent.ACTION_VIEW, uri))
     }
 
+    /**
+     * Opens Vektor Go's own subscription checkout. This charges INTO
+     * Vektor Go's Mercado Pago account (not the merchant's) — see
+     * create-subscription in supabase/functions/ and its notes on the
+     * separate business account this requires.
+     */
+    private fun openSubscriptionCheckout() {
+        val uri = Uri.parse("$MP_OAUTH_SERVICE_URL/create-subscription")
+        startActivity(Intent(Intent.ACTION_VIEW, uri))
+    }
+
     private fun handleMpOAuthIntent(intent: Intent?) {
         val uri = intent?.data ?: return
-        if (uri.scheme != "factuar" || uri.host != "mp-connected") return
+        if (uri.scheme != "factuar") return
 
-        val accessToken = uri.getQueryParameter("access_token")
-        if (accessToken.isNullOrBlank()) return
-        val userId = uri.getQueryParameter("user_id")?.toLongOrNull() ?: 0L
-        val name = uri.getQueryParameter("name").orEmpty()
-        viewModel.completeMercadoPagoOAuth(accessToken, userId, name)
+        when (uri.host) {
+            "mp-connected" -> {
+                val accessToken = uri.getQueryParameter("access_token")
+                if (accessToken.isNullOrBlank()) return
+                val userId = uri.getQueryParameter("user_id")?.toLongOrNull() ?: 0L
+                val name = uri.getQueryParameter("name").orEmpty()
+                viewModel.completeMercadoPagoOAuth(accessToken, userId, name)
+            }
+            "subscription-activated" -> {
+                val preapprovalId = uri.getQueryParameter("preapproval_id").orEmpty()
+                val status = uri.getQueryParameter("status").orEmpty()
+                viewModel.completeSubscriptionActivation(preapprovalId, status)
+            }
+        }
     }
 }
 
@@ -148,7 +173,8 @@ data class NavItem(
 @Composable
 fun BillingApp(
     viewModel: BillingViewModel = viewModel(),
-    onOpenMpOAuth: () -> Unit = {}
+    onOpenMpOAuth: () -> Unit = {},
+    onOpenSubscriptionCheckout: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -158,6 +184,16 @@ fun BillingApp(
             snackbarHostState.showSnackbar(it)
             viewModel.dismissStatusMessage()
         }
+    }
+
+    // Bypassed in debug builds on purpose: the Vektor Go business Mercado
+    // Pago account + subscription plan don't exist yet, so
+    // create-subscription can't succeed — gating debug builds too would
+    // make every other feature untestable in the meantime. The gate is
+    // real in release builds (BuildConfig.DEBUG is false there).
+    if (!com.vektorgo.app.BuildConfig.DEBUG && !state.config.isSubscribed) {
+        SubscriptionPaywallScreen(onSubscribe = onOpenSubscriptionCheckout)
+        return
     }
 
     val navItems = listOf(

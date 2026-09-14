@@ -34,5 +34,13 @@ data class ArcaConfigEntity(
     val defaultAlicuotaIva: Double = 21.0,
     val minAmountRequiresDoc: Double = 344488.0,
     val webhookRelayUrl: String = "",
-    val lastSyncTimestamp: Long = System.currentTimeMillis()
+    val lastSyncTimestamp: Long = System.currentTimeMillis(),
+
+    // Vektor Go's own subscription (what the merchant pays US, not what
+    // their customers pay them). No free trial: isSubscribed only ever
+    // becomes true once Mercado Pago confirms the preapproval is
+    // "authorized" — see subscription-callback in supabase/functions/.
+    val isSubscribed: Boolean = false,
+    val subscriptionId: String = "", // Mercado Pago preapproval id
+    val subscriptionStatus: String = "NONE" // NONE, PENDING, AUTHORIZED, CANCELLED
 )

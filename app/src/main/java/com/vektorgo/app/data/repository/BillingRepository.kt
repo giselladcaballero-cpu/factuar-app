@@ -514,6 +514,31 @@ class BillingRepository(
     }
 
     /**
+     * Records the result of a Vektor Go subscription checkout. isSubscribed
+     * only becomes true for "authorized" — no free trial, no optimistic
+     * unlock while pending. Any other status (pending, cancelled, paused,
+     * rejected) leaves the app gated behind the paywall.
+     */
+    suspend fun activateSubscription(preapprovalId: String, status: String) = withContext(Dispatchers.IO) {
+        val current = getConfig()
+        val authorized = status.equals("authorized", ignoreCase = true)
+        val updated = current.copy(
+            isSubscribed = authorized,
+            subscriptionId = preapprovalId,
+            subscriptionStatus = status.uppercase()
+        )
+        configDao.insertOrUpdateConfig(updated)
+        auditLogDao.insertLog(
+            AuditLogEntity(
+                eventType = if (authorized) "SUBSCRIPTION_ACTIVATED" else "SUBSCRIPTION_NOT_AUTHORIZED",
+                title = if (authorized) "Suscripción de Vektor Go Activada" else "Suscripción no autorizada",
+                message = "Preapproval ID: $preapprovalId | Estado: $status",
+                severity = if (authorized) LogSeverity.SUCCESS else LogSeverity.WARNING
+            )
+        )
+    }
+
+    /**
      * Gets valid cached AuthTicket or requests a new one from WSAA.
      */
     private suspend fun getOrRefreshAuthTicket(config: ArcaConfigEntity): AuthTicketEntity {

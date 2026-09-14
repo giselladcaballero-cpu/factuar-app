@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.mp-callback]
 verify_jwt = false
+
+[functions.create-subscription]
+verify_jwt = false
+
+[functions.subscription-callback]
+verify_jwt = false

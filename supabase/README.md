@@ -65,6 +65,69 @@ exacto (mismo flujo PKCE, mismo deep link `factuar://mp-connected`).
 4. Una vez confirmado que el flujo real funciona end-to-end, dar de baja el
    proyecto en Vercel.
 
+## Suscripción de Vektor Go (`create-subscription` + `subscription-callback`)
+
+Esto cobra la suscripción mensual del NEGOCIO Vektor Go a cada comerciante
+que usa la app — es una cuenta de Mercado Pago completamente distinta a la
+del comerciante (que factura pagos y transferencias). No confundir los
+secrets de una con los de la otra.
+
+**Archivos:**
+- `functions/create-subscription/index.ts` — la app abre esta URL en el
+  navegador; crea un `preapproval` (recurrencia) de Mercado Pago **sin**
+  `free_trial` configurado en el plan, y redirige al checkout real de
+  Mercado Pago para esa recurrencia.
+- `functions/subscription-callback/index.ts` — `back_url` del checkout.
+  Verifica el estado real contra la API de Mercado Pago (nunca confía en
+  los query params del redirect, no vienen firmados) y devuelve el deep
+  link `factuar://subscription-activated?...`.
+
+**Pasos manuales pendientes (no los puedo hacer yo, y nada de esto anda
+hasta que existan):**
+
+1. Crear una cuenta de Mercado Pago separada para el NEGOCIO Vektor Go (no
+   la de ningún comerciante cliente). Sacar su Access Token de producción
+   desde `developers.mercadopago.com` → esa cuenta → Credenciales.
+2. Crear el plan de suscripción una sola vez, con esa cuenta:
+   ```
+   curl -X POST https://api.mercadopago.com/preapproval_plan \
+     -H "Authorization: Bearer TU_BUSINESS_ACCESS_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "reason": "Vektor Go - Suscripción mensual",
+       "auto_recurring": {
+         "frequency": 1,
+         "frequency_type": "months",
+         "transaction_amount": 14999,
+         "currency_id": "ARS"
+       }
+     }'
+   ```
+   Importante: **no** incluir `"free_trial"` — sin ese campo, Mercado Pago
+   cobra desde el primer día, que es lo que se pidió (sin período de
+   prueba). La respuesta trae un `id`: ese es el `preapproval_plan_id`.
+3. Cargar los secrets en Supabase (Project Settings → Edge Functions →
+   Secrets, o `supabase secrets set`):
+   ```
+   VEKTOR_BUSINESS_MP_ACCESS_TOKEN=<el access token del paso 1>
+   VEKTOR_SUBSCRIPTION_PLAN_ID=<el id del paso 2>
+   VEKTOR_SUBSCRIPTION_BACK_URL=https://TU_PROJECT_REF.supabase.co/functions/v1/subscription-callback
+   ```
+4. Desplegar:
+   ```
+   supabase functions deploy create-subscription
+   supabase functions deploy subscription-callback
+   ```
+5. Probar el flujo real: `openSubscriptionCheckout()` en la app abre
+   `create-subscription`, que debería redirigir al checkout de Mercado
+   Pago. Completarlo con una cuenta de prueba y confirmar que
+   `subscription-activated` llega con `status=authorized`.
+
+**Nota sobre el gate en la app:** el paywall (`SubscriptionPaywallScreen`)
+está desactivado en builds de debug a propósito (`BuildConfig.DEBUG`),
+para no bloquear el resto de las pruebas mientras esta cuenta no exista.
+En builds de release el gate funciona de verdad.
+
 ## Nota sobre el esquema del deep link
 
 Se mantuvo `factuar://mp-connected` sin cambios a propósito: si se renombra
