@@ -99,8 +99,16 @@ class MainActivity : ComponentActivity() {
         // KEEP: safe to call on every launch, never resets or duplicates the
         // already-scheduled periodic job.
         com.vektorgo.app.work.MpSyncWorker.schedule(applicationContext)
+        val lastCrash = VektorGoApplication.getLastCrash(applicationContext)
         setContent {
             VektorGoTheme {
+                if (lastCrash != null) {
+                    CrashReportScreen(
+                        crashText = lastCrash,
+                        onDismiss = { VektorGoApplication.clearLastCrash(applicationContext); recreate() }
+                    )
+                    return@VektorGoTheme
+                }
                 var showSplash by remember { mutableStateOf(true) }
                 if (showSplash) {
                     com.vektorgo.app.ui.screens.VektorSplashScreen(onFinished = { showSplash = false })
@@ -428,4 +436,62 @@ fun BillingApp(
 @Composable
 fun Greeting(name: String, modifier: Modifier = Modifier) {
     Text(text = "Hello $name!", modifier = modifier)
+}
+
+/**
+ * Shown once, right after a crash, instead of the app just closing with
+ * nothing to go on. Lets the crash text be copied so it can be sent for
+ * diagnosis, then clears it and restarts normally.
+ */
+@Composable
+fun CrashReportScreen(crashText: String, onDismiss: () -> Unit) {
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = "La app se cerró inesperadamente",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = "Copiá este texto y mandalo para poder arreglarlo.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                .padding(12.dp)
+        ) {
+            androidx.compose.foundation.text.selection.SelectionContainer {
+                Column(modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+                    Text(
+                        text = crashText,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+        androidx.compose.material3.OutlinedButton(
+            onClick = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(crashText)) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Copiar error")
+        }
+        androidx.compose.material3.Button(
+            onClick = onDismiss,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Continuar")
+        }
+    }
 }
