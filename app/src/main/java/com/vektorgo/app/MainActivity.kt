@@ -205,17 +205,28 @@ fun BillingApp(
     val isArcaActive = state.config.isArcaConnected &&
         (state.config.certCrtPem.isNotBlank() || state.config.cuitEmisor > 0)
     if (!isArcaActive || !state.config.isMpConnected) {
-        OnboardingScreen(
-            state = state,
-            onSaveConfig = { viewModel.saveConfig(it) },
-            onOpenAutoProvisioning = { viewModel.openCsrDialog() },
-            onCloseAutoProvisioning = { viewModel.closeCsrDialog() },
-            onGenerateCsr = { cuit, razon -> viewModel.startCsrGeneration(cuit, razon) },
-            onSaveArcaCertificate = { certPem -> viewModel.saveArcaCertificate(certPem) },
-            onOpenMpOAuth = onOpenMpOAuth,
-            onCloseMpOAuth = { viewModel.closeMpTokenDialog() },
-            onConnectMp = { accessToken -> viewModel.connectMercadoPago(accessToken) }
-        )
+        // Needs its own SnackbarHost: this branch returns before reaching the
+        // Scaffold below, so without this the WSAA/Punto de Venta
+        // verification result (and any other status message) would be
+        // enqueued on a SnackbarHostState that's never actually composed on
+        // screen -- silently swallowed right when it matters most.
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) }
+        ) { innerPadding ->
+            Box(modifier = Modifier.padding(innerPadding)) {
+                OnboardingScreen(
+                    state = state,
+                    onSaveConfig = { viewModel.saveConfig(it) },
+                    onOpenAutoProvisioning = { viewModel.openCsrDialog() },
+                    onCloseAutoProvisioning = { viewModel.closeCsrDialog() },
+                    onGenerateCsr = { cuit, razon -> viewModel.startCsrGeneration(cuit, razon) },
+                    onSaveArcaCertificate = { certPem -> viewModel.saveArcaCertificate(certPem) },
+                    onOpenMpOAuth = onOpenMpOAuth,
+                    onCloseMpOAuth = { viewModel.closeMpTokenDialog() },
+                    onConnectMp = { accessToken -> viewModel.connectMercadoPago(accessToken) }
+                )
+            }
+        }
         return
     }
 
