@@ -187,7 +187,7 @@ class MercadoPagoService(
         }
     }
 
-    private fun String.toHttpUrlBuilder() = okhttp3.HttpUrl.parse(this)!!.newBuilder()
+    private fun String.toHttpUrlBuilder() = okhttp3.HttpUrl.Companion.toHttpUrl(this).newBuilder()
 
     private fun parsePaymentJson(json: JSONObject): MpPaymentDetail {
         val payerJson = json.optJSONObject("payer")
