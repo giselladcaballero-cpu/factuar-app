@@ -11,6 +11,7 @@ import com.vektorgo.app.data.local.entity.InvoiceEntity
 import com.vektorgo.app.data.local.entity.PaymentBillingStatus
 import com.vektorgo.app.data.local.entity.PaymentEntity
 import com.vektorgo.app.data.repository.BillingRepository
+import com.vektorgo.app.util.SoundPlayer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -257,6 +258,7 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
             if (result.isSuccess) {
                 val invoice = result.getOrNull()
                 _statusMessage.value = if (invoice != null) {
+                    SoundPlayer.playInvoiceEmitted(getApplication())
                     "Pago aprobado y ${invoice.cbteTipoNombre} emitida con CAE ${invoice.cae}"
                 } else {
                     "Pago recibido y guardado"
@@ -276,6 +278,7 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
             if (res.isSuccess) {
                 val nc = res.getOrNull()
                 _selectedInvoice.value = nc
+                SoundPlayer.playInvoiceEmitted(getApplication())
                 _statusMessage.value = "Nota de Crédito emitida con éxito. CAE: ${nc?.cae}"
             } else {
                 _statusMessage.value = "Error en ARCA: ${res.exceptionOrNull()?.message}"
@@ -293,6 +296,7 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
             if (res.isSuccess) {
                 val inv = res.getOrNull()
                 _selectedInvoice.value = inv
+                SoundPlayer.playInvoiceEmitted(getApplication())
                 _statusMessage.value = "Factura emitida con éxito. CAE: ${inv?.cae}"
             } else {
                 _statusMessage.value = "Error en ARCA: ${res.exceptionOrNull()?.message}"

@@ -24,9 +24,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vektorgo.app.util.SoundPlayer
 
 private val BrandStart = Color(0xFF2255A4)
 private val BrandMid = Color(0xFF1B3E8F)
@@ -45,7 +47,9 @@ private val WaveOuter = Color(0xFFC6F3FA)
 @Composable
 fun VektorSplashScreen(onFinished: () -> Unit) {
     val progress = remember { Animatable(0f) }
+    val context = LocalContext.current
     LaunchedEffect(Unit) {
+        SoundPlayer.playAppOpen(context)
         progress.animateTo(1f, animationSpec = tween(durationMillis = 1800, easing = LinearEasing))
         onFinished()
     }
