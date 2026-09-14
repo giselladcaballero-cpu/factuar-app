@@ -104,10 +104,13 @@ class WsfeBillingService(
             val faultDetail = extractSoapFault(responseBody).ifBlank { responseBody.take(500) }
             val diagnostic = if (faultDetail.isBlank()) {
                 // ARCA returned an empty body — likely a raw parser-level
-                // rejection before it could even build a SOAP Fault. Include
-                // the request we actually sent (credentials redacted) so the
-                // malformed XML can be spotted directly.
-                "(sin contenido) | Request enviado: ${compactXmlForLog(redactAuthForLog(soapPayload))}"
+                // rejection before it could even build a SOAP Fault, or an
+                // intermediate proxy/WAF in front of ARCA blocking the
+                // request. Include the response headers (which can reveal a
+                // WAF/CDN signature) plus the request we actually sent
+                // (credentials redacted) so it can be diagnosed directly.
+                val headerDump = response.headers.joinToString(" | ") { (name, value) -> "$name=$value" }
+                "(sin contenido) | Response headers: $headerDump | Request enviado: ${compactXmlForLog(redactAuthForLog(soapPayload))}"
             } else {
                 faultDetail
             }
