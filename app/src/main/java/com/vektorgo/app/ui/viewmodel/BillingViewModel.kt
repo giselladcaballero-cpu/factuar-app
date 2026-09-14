@@ -410,10 +410,24 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             _isProcessing.value = true
             repository.saveArcaCertificate(csr.cuit, csr.razonSocial, csr.privateKeyPem, certPem)
-            _isProcessing.value = false
             _csrUiState.update { it.copy(isSaved = true) }
-            _wsaaStatus.value = "CONECTADO (${csr.razonSocial})"
-            _statusMessage.value = "Certificado ARCA guardado para CUIT ${csr.cuit}"
+            _statusMessage.value = "Certificado guardado. Probando conexión con ARCA..."
+            // Test immediately instead of leaving the user to find "Probar WSAA"
+            // elsewhere in Ajustes -- if the alias still needs to be associated
+            // to the WSFE service in ARCA (a step this dialog can't do for
+            // them), they see that right away instead of only when billing.
+            _wsaaStatus.value = "PROBANDO..."
+            val result = repository.testWsaaAuth()
+            _isProcessing.value = false
+            if (result.isSuccess) {
+                _wsaaStatus.value = "CONECTADO (${uiState.value.config.environment})"
+                _statusMessage.value = "Certificado guardado y conexión con ARCA confirmada."
+            } else {
+                _wsaaStatus.value = "ERROR"
+                _statusMessage.value = "Certificado guardado, pero ARCA todavía lo rechaza: " +
+                    "${result.exceptionOrNull()?.message}. Revisá que hayas asociado el alias al " +
+                    "servicio WSFE en 'Administrador de Relaciones' de ARCA."
+            }
         }
     }
 

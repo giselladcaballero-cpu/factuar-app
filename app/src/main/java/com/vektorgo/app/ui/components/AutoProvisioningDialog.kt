@@ -1,5 +1,7 @@
 package com.vektorgo.app.ui.components
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -47,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -77,6 +80,7 @@ fun AutoProvisioningDialog(
     var razonSocialInput by remember { mutableStateOf(csr.razonSocial) }
     var certInput by remember { mutableStateOf("") }
     val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
 
     Dialog(onDismissRequest = {
         if (!csr.isGenerating) onDismiss()
@@ -285,14 +289,43 @@ fun AutoProvisioningDialog(
                             DialogStepRow(3, "Descargá el certificado .crt que ARCA te entrega.")
                             DialogStepRow(4, "En 'Administrador de Relaciones', asociá ese alias al servicio 'WSFE'.")
                             DialogStepRow(5, "Abrí el .crt, copiá su contenido y pegalo abajo.")
+                            OutlinedButton(
+                                onClick = {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://auth.afip.gob.ar/contribuyente_/login.xhtml"))
+                                    context.startActivity(intent)
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = ArcaBlue)
+                            ) {
+                                Icon(imageVector = Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Abrir arca.gob.ar", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
                         }
 
-                        Text(
-                            text = "2. Pegá acá el certificado que te dio ARCA",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "2. Pegá acá el certificado que te dio ARCA",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    certInput = clipboard.getText()?.text ?: certInput
+                                },
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(13.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Pegar", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
                         OutlinedTextField(
                             value = certInput,
                             onValueChange = { certInput = it },
