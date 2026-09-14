@@ -24,7 +24,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,9 +46,8 @@ private val WaveOuter = Color(0xFFC6F3FA)
 @Composable
 fun VektorSplashScreen(onFinished: () -> Unit) {
     val progress = remember { Animatable(0f) }
-    val context = LocalContext.current
     LaunchedEffect(Unit) {
-        SoundPlayer.playAppOpen(context)
+        SoundPlayer.playAppOpen()
         progress.animateTo(1f, animationSpec = tween(durationMillis = 1800, easing = LinearEasing))
         onFinished()
     }
