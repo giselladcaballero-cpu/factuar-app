@@ -144,9 +144,9 @@ fun OnboardingScreen(
                     ) {
                         OnboardingStepRow(
                             1,
-                            "Dar de alta tu Punto de Venta: arca.gob.ar con tu Clave Fiscal → " +
-                                "\"Puntos de Venta y Domicilios\" → Nuevo → Sistema: \"WSFE - Web Services\" " +
-                                "(no \"Facturador Móvil\" ni \"Controlador Fiscal\"). Anotá el número y cargalo abajo."
+                            "Dar de alta el Punto de Venta N° 100: arca.gob.ar con tu Clave Fiscal → " +
+                                "\"Puntos de Venta y Domicilios\" → Nuevo → poné el número 100 → Sistema: \"WSFE - Web Services\" " +
+                                "(no \"Facturador Móvil\" ni \"Controlador Fiscal\"). Ya viene cargado 100 abajo, no hace falta que anotes nada."
                         )
                         OnboardingStepRow(
                             2,
@@ -170,8 +170,9 @@ fun OnboardingScreen(
                     )
                     OutlinedTextField(
                         value = puntoVentaText,
-                        onValueChange = { puntoVentaText = it.filter { c -> c.isDigit() } },
-                        label = { Text("Punto de Venta (el número que te dio ARCA)") },
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Punto de Venta (fijo, creá este mismo número en ARCA)") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -182,7 +183,7 @@ fun OnboardingScreen(
                                 state.config.copy(
                                     cuitEmisor = cuitText.toLongOrNull() ?: 0L,
                                     razonSocial = razonSocial,
-                                    puntoVenta = puntoVentaText.toIntOrNull() ?: 1
+                                    puntoVenta = puntoVentaText.toIntOrNull() ?: 100
                                 )
                             )
                             onOpenAutoProvisioning()
@@ -190,7 +191,7 @@ fun OnboardingScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = ArcaBlue),
-                        enabled = cuitText.length == 11 && razonSocial.isNotBlank() && puntoVentaText.isNotBlank()
+                        enabled = cuitText.length == 11 && razonSocial.isNotBlank()
                     ) {
                         Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))

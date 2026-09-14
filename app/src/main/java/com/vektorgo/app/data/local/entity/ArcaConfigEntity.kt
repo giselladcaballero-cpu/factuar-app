@@ -12,7 +12,11 @@ data class ArcaConfigEntity(
     val domicilioFiscal: String = "",
     val inicioActividades: String = "",
     val condicionIvaEmisor: String = "RESPONSABLE_INSCRIPTO", // RESPONSABLE_INSCRIPTO, MONOTRIBUTO
-    val puntoVenta: Int = 1,
+    // Fixed default across every merchant: Punto de Venta is unique per
+    // CUIT in ARCA, not globally, so every different merchant can create
+    // "Punto de Venta N° 100" on their own account without colliding with
+    // anyone else's. Removes the "cuál me toca" ambiguity from onboarding.
+    val puntoVenta: Int = 100,
     val environment: String = "HOMOLOGACION", // HOMOLOGACION, PRODUCCION
     val certCrtPem: String = "",
     val privateKeyPem: String = "",

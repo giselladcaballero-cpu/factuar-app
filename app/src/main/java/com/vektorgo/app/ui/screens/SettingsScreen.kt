@@ -308,10 +308,10 @@ fun SettingsScreen(
                         )
                         DelegationStepRow(
                             1,
-                            "Dar de alta tu Punto de Venta: entrá a arca.gob.ar con tu Clave Fiscal → " +
-                                "\"Puntos de Venta y Domicilios\" → Nuevo → Sistema: \"WSFE - Web Services\". " +
+                            "Dar de alta el Punto de Venta N° 100: entrá a arca.gob.ar con tu Clave Fiscal → " +
+                                "\"Puntos de Venta y Domicilios\" → Nuevo → poné el número 100 → Sistema: \"WSFE - Web Services\". " +
                                 "No elijas \"Facturador Móvil\" ni \"Controlador Fiscal\", ARCA rechaza las facturas si el sistema no es este. " +
-                                "Anotá el número que te asigna y cargalo en \"Punto Venta\", en Parámetros Fiscales más abajo."
+                                "El campo \"Punto Venta\" de Parámetros Fiscales ya viene con 100 cargado."
                         )
                         DelegationStepRow(
                             2,
