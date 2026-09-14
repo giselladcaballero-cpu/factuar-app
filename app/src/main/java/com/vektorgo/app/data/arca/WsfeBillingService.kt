@@ -213,8 +213,8 @@ class WsfeBillingService(
                         <ImpTotConc>${String.format(Locale.US, "%.2f", req.impTotConc)}</ImpTotConc>
                         <ImpNeto>${String.format(Locale.US, "%.2f", req.impNeto)}</ImpNeto>
                         <ImpOpEx>${String.format(Locale.US, "%.2f", req.impOpEx)}</ImpOpEx>
-                        <ImpTrib>${String.format(Locale.US, "%.2f", req.impTrib)}</ImpTrib>
                         <ImpIVA>${String.format(Locale.US, "%.2f", req.impIVA)}</ImpIVA>
+                        <ImpTrib>${String.format(Locale.US, "%.2f", req.impTrib)}</ImpTrib>
                         $serviciosFechas
                         <MonId>${req.monId}</MonId>
                         <MonCotiz>${String.format(Locale.US, "%.1f", req.monCotiz)}</MonCotiz>
