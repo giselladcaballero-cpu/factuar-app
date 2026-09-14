@@ -3,18 +3,28 @@
 // access token (using the Client Secret, kept server-side only), fetches the
 // account's display name, then bounces the browser to a custom URI scheme so
 // the Android app picks it up directly — no polling, no database.
+//
+// On success this issues a plain HTTP redirect (Location header) straight to
+// factuar://mp-connected, instead of an HTML page whose <script> does
+// window.location.replace(). Supabase's edge gateway forces a
+// Content-Security-Policy: sandbox + Content-Type: text/plain +
+// X-Content-Type-Options: nosniff on non-JSON function responses (undocumented,
+// found by testing — real mobile browsers send Accept-Encoding, which triggers
+// it; plain `curl` without that header doesn't, which is why it wasn't obvious
+// at first). That sandboxing blocks the redirect script from ever running and
+// renders the HTML as literal text instead. A raw 302 doesn't depend on the
+// browser executing anything, so it isn't affected.
+//
+// Error cases still return a small HTML page — nothing there needs to
+// execute script, so the CSP sandbox doesn't matter for them; it's fine if a
+// browser renders it as plain text too, since it's just a message for the
+// person to read.
 
 const MP_TOKEN_URL = "https://api.mercadopago.com/oauth/token";
 const MP_ME_URL = "https://api.mercadopago.com/users/me";
 const APP_SCHEME = "factuar://mp-connected";
 
-function htmlPage({ title, message, deepLink }: { title: string; message: string; deepLink?: string }): string {
-  const redirectScript = deepLink
-    ? `<script>window.location.replace(${JSON.stringify(deepLink)});</script>`
-    : "";
-  const linkButton = deepLink
-    ? `<a href="${deepLink}" style="display:inline-block;margin-top:16px;padding:12px 20px;background:#009ee3;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;">Volver a la app</a>`
-    : "";
+function errorPage(title: string, message: string): string {
   return `<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><title>${title}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -22,15 +32,17 @@ function htmlPage({ title, message, deepLink }: { title: string; message: string
 <body style="font-family:sans-serif;text-align:center;padding:40px 20px;background:#111;color:#eee;">
   <h2>${title}</h2>
   <p>${message}</p>
-  ${linkButton}
-  ${redirectScript}
 </body></html>`;
 }
 
 function htmlResponse(body: string, status = 200): Response {
-  return new Response(body, {
+  const bytes = new TextEncoder().encode(body);
+  return new Response(bytes, {
     status,
-    headers: { "Content-Type": "text/html; charset=utf-8" },
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Content-Length": String(bytes.byteLength),
+    },
   });
 }
 
@@ -42,19 +54,19 @@ Deno.serve(async (req: Request) => {
 
   if (mpError) {
     return htmlResponse(
-      htmlPage({
-        title: "Autorización cancelada",
-        message: "No se completó la vinculación con Mercado Pago. Podés volver a intentarlo desde la app.",
-      }),
+      errorPage(
+        "Autorización cancelada",
+        "No se completó la vinculación con Mercado Pago. Podés volver a intentarlo desde la app.",
+      ),
     );
   }
 
   if (!code) {
     return htmlResponse(
-      htmlPage({
-        title: "Falta el código de autorización",
-        message: "Mercado Pago no envió un código válido. Volvé a la app e intentá de nuevo.",
-      }),
+      errorPage(
+        "Falta el código de autorización",
+        "Mercado Pago no envió un código válido. Volvé a la app e intentá de nuevo.",
+      ),
       400,
     );
   }
@@ -78,10 +90,10 @@ Deno.serve(async (req: Request) => {
     const tokenData = await tokenResponse.json();
     if (!tokenResponse.ok || !tokenData.access_token) {
       return htmlResponse(
-        htmlPage({
-          title: "No se pudo vincular la cuenta",
-          message: `Mercado Pago rechazó la autorización: ${tokenData.message || tokenData.error || "error desconocido"}.`,
-        }),
+        errorPage(
+          "No se pudo vincular la cuenta",
+          `Mercado Pago rechazó la autorización: ${tokenData.message || tokenData.error || "error desconocido"}.`,
+        ),
       );
     }
 
@@ -100,19 +112,16 @@ Deno.serve(async (req: Request) => {
     });
     const deepLink = `${APP_SCHEME}?${params.toString()}`;
 
-    return htmlResponse(
-      htmlPage({
-        title: "¡Cuenta de Mercado Pago vinculada!",
-        message: "Ya podés volver a la app Vektor Go.",
-        deepLink,
-      }),
-    );
+    return new Response(null, {
+      status: 302,
+      headers: { Location: deepLink },
+    });
   } catch (e) {
     return htmlResponse(
-      htmlPage({
-        title: "Error inesperado",
-        message: `Ocurrió un problema vinculando la cuenta: ${(e as Error).message}. Volvé a intentarlo desde la app.`,
-      }),
+      errorPage(
+        "Error inesperado",
+        `Ocurrió un problema vinculando la cuenta: ${(e as Error).message}. Volvé a intentarlo desde la app.`,
+      ),
     );
   }
 });
