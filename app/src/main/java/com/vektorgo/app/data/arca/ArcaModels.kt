@@ -45,6 +45,9 @@ data class WsfeVoucherRequest(
     val fchVtoPago: String? = null,
     val monId: String = "PES",
     val monCotiz: Double = 1.0,
+    // Mandatory since ARCA's RG 5616 ("Condición IVA del receptor"):
+    // 1 Responsable Inscripto, 4 Exento, 5 Consumidor Final, 6 Monotributo.
+    val condicionIvaReceptorId: Int,
     val ivaItems: List<ArcaIvaItem> = emptyList(),
     val cbtesAsociados: List<ArcaCbteAsociado> = emptyList()
 )

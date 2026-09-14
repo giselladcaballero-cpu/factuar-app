@@ -246,6 +246,7 @@ class BillingRepository(
                 impOpEx = 0.0,
                 impTrib = 0.0,
                 impIVA = impIva,
+                condicionIvaReceptorId = condicionIvaReceptorId(receptorCondicionIva, docTipo),
                 ivaItems = ivaItems
             )
 
@@ -419,6 +420,10 @@ class BillingRepository(
                 impOpEx = original.impOpEx,
                 impTrib = original.impTrib,
                 impIVA = original.impIVA,
+                // Must match the original comprobante's receptor condition,
+                // not be re-derived — ARCA validates consistency between a
+                // Nota de Crédito and the invoice it corrects.
+                condicionIvaReceptorId = condicionIvaReceptorId(original.receptorCondicionIva, original.docTipo),
                 ivaItems = ivaItems,
                 cbtesAsociados = listOf(
                     ArcaCbteAsociado(
@@ -798,5 +803,20 @@ class BillingRepository(
         simulateIncomingPayment(0)
         simulateIncomingPayment(1)
         simulateIncomingPayment(2)
+    }
+
+    /**
+     * Maps the receptor's condición IVA to ARCA's CondicionIVAReceptorId
+     * table (mandatory since RG 5616). DocTipo 99 (sin identificar) always
+     * means Consumidor Final regardless of the text label.
+     */
+    private fun condicionIvaReceptorId(receptorCondicionIva: String, docTipo: Int): Int {
+        if (docTipo == 99) return 5 // Consumidor Final
+        return when {
+            receptorCondicionIva.contains("Responsable Inscripto", ignoreCase = true) -> 1
+            receptorCondicionIva.contains("Exento", ignoreCase = true) -> 4
+            receptorCondicionIva.contains("Monotributo", ignoreCase = true) -> 6
+            else -> 5 // Consumidor Final
+        }
     }
 }
