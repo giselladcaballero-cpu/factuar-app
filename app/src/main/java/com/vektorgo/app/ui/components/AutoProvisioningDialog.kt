@@ -42,6 +42,8 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -57,6 +60,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.vektorgo.app.ui.theme.ArcaBlue
 import com.vektorgo.app.ui.theme.MpGreen
 import com.vektorgo.app.ui.viewmodel.CsrUiState
@@ -81,6 +86,7 @@ fun AutoProvisioningDialog(
     var certInput by remember { mutableStateOf("") }
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     Dialog(onDismissRequest = {
         if (!csr.isGenerating) onDismiss()
@@ -209,6 +215,35 @@ fun AutoProvisioningDialog(
                     }
 
                     csr.isReady -> {
+                        // Copies the CSR the moment it's ready, so there's nothing to
+                        // tap before leaving for ARCA's site — one less step than
+                        // requiring an explicit "Copiar CSR" press first.
+                        LaunchedEffect(csr.csrPem) {
+                            if (csr.csrPem.isNotBlank()) {
+                                clipboard.setText(AnnotatedString(csr.csrPem))
+                            }
+                        }
+
+                        // Watches for the user coming back from ARCA's site (the only
+                        // moment the app can read the clipboard) and, if what they
+                        // copied there looks like the certificate ARCA issued, saves
+                        // it immediately — no "Pegar" + "Guardar Certificado" taps.
+                        // Falls back to the manual paste field below if this misses
+                        // for any reason (e.g. they copied something else first).
+                        DisposableEffect(lifecycleOwner) {
+                            val observer = LifecycleEventObserver { _, event ->
+                                if (event == Lifecycle.Event.ON_RESUME) {
+                                    val clipText = clipboard.getText()?.text.orEmpty().trim()
+                                    if (clipText.contains("BEGIN CERTIFICATE") && clipText != certInput) {
+                                        certInput = clipText
+                                        onSaveCertificate(clipText)
+                                    }
+                                }
+                            }
+                            lifecycleOwner.lifecycle.addObserver(observer)
+                            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                        }
+
                         // Homologación shortcut: ARCA's testing WSAA accepts a
                         // self-signed certificate, no trip to the ARCA portal needed.
                         Box(
@@ -242,7 +277,7 @@ fun AutoProvisioningDialog(
                         }
 
                         Text(
-                            text = "O, para Producción: 1. Copiá este CSR y subilo en ARCA",
+                            text = "O, para Producción: ya copiamos este CSR — pegalo en ARCA",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -285,10 +320,10 @@ fun AutoProvisioningDialog(
                                 Text("Pasos en afip.gob.ar (con tu Clave Fiscal, en tu navegador):", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                             DialogStepRow(1, "Entrá a 'Administración de Certificados Digitales'.")
-                            DialogStepRow(2, "Elegí 'Agregar Alias' y pegá el CSR de arriba.")
+                            DialogStepRow(2, "Elegí 'Agregar Alias' y pegá el CSR (ya está copiado).")
                             DialogStepRow(3, "Descargá el certificado .crt que ARCA te entrega.")
                             DialogStepRow(4, "En 'Administrador de Relaciones', asociá ese alias al servicio 'WSFE'.")
-                            DialogStepRow(5, "Abrí el .crt, copiá su contenido y pegalo abajo.")
+                            DialogStepRow(5, "Abrí el .crt y copiá su contenido — al volver a la app se guarda solo.")
                             OutlinedButton(
                                 onClick = {
                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://auth.afip.gob.ar/contribuyente_/login.xhtml"))
