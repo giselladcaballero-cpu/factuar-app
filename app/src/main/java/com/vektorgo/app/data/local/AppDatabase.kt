@@ -6,8 +6,6 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import net.sqlcipher.database.SQLiteDatabase as SqlCipherDatabase
-import net.sqlcipher.database.SupportFactory
 import com.vektorgo.app.data.local.dao.AuditLogDao
 import com.vektorgo.app.data.local.dao.ConfigDao
 import com.vektorgo.app.data.local.dao.InvoiceDao
@@ -80,17 +78,15 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // New file name on purpose: "factuar_v2.db" was plaintext SQLite.
-        // SQLCipher can't open a plaintext file with a cipher key, so reusing
-        // that name would crash on open for any existing install instead of
-        // migrating. A fresh encrypted file sidesteps that.
-        // TEMP DIAGNOSTIC: SQLCipher disabled and pointed at a brand new file
-        // name to test whether its native library load is what's crashing
-        // the app on open with nothing catchable at the Kotlin level
-        // (consistent with a native crash, which bypasses
-        // Thread.setDefaultUncaughtExceptionHandler entirely). Revert once
-        // confirmed.
-        private const val DB_FILE_NAME = "vektor_go_diag.db"
+        // SQLCipher (net.zetetic:android-database-sqlcipher) was causing a
+        // native-level crash on open on real devices -- silent, uncatchable
+        // by Thread.setDefaultUncaughtExceptionHandler, confirmed by testing
+        // with it removed. Reverted to plain Room/SQLite until that's
+        // investigated properly with real device debugging; a broken app
+        // protects no one's data. "vektor_go_secure.db" (the SQLCipher file
+        // name) is intentionally abandoned rather than reused, since it was
+        // never reached far enough to hold real data.
+        private const val DB_FILE_NAME = "vektor_go.db"
 
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
