@@ -78,11 +78,13 @@ import com.vektorgo.app.ui.theme.VektorGoTheme
 import com.vektorgo.app.ui.viewmodel.BillingViewModel
 
 /**
- * Base URL of the FactuAR Mercado Pago OAuth bridge (a small serverless
- * function that holds the Client Secret so it never lives on-device). See
- * mp-oauth-service/ in the repo root.
+ * Base URL of the Vektor Go Mercado Pago OAuth bridge (a small serverless
+ * function that holds the Client Secret so it never lives on-device).
+ * Supabase Edge Functions now, replacing the Vercel mp-oauth-service (still
+ * in the repo under mp-oauth-service/, kept as a fallback reference) to stay
+ * at $0/month as the subscriber base grows. See supabase/README.md.
  */
-private const val MP_OAUTH_SERVICE_URL = "https://factuar-mp-oauth.vercel.app"
+private const val MP_OAUTH_SERVICE_URL = "https://aaalabfxyrdpunhcanbu.supabase.co/functions/v1"
 
 class MainActivity : ComponentActivity() {
     private val viewModel: BillingViewModel by viewModels()
@@ -107,14 +109,11 @@ class MainActivity : ComponentActivity() {
     /**
      * Opens Mercado Pago's real consent screen in the browser. The user
      * approves with their own account there; Mercado Pago redirects to our
-     * Vercel bridge, which exchanges the code for a token and bounces back
+     * Supabase bridge, which exchanges the code for a token and bounces back
      * to this app via the factuar://mp-connected deep link.
      */
     private fun openMercadoPagoOAuth() {
-        val state = java.util.UUID.randomUUID().toString()
-        val uri = Uri.parse("$MP_OAUTH_SERVICE_URL/api/mp-authorize").buildUpon()
-            .appendQueryParameter("state", state)
-            .build()
+        val uri = Uri.parse("$MP_OAUTH_SERVICE_URL/mp-authorize")
         startActivity(Intent(Intent.ACTION_VIEW, uri))
     }
 
