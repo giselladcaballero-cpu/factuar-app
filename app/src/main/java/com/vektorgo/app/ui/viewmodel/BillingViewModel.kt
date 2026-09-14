@@ -67,6 +67,10 @@ data class MpConnectUiState(
 
 class BillingViewModel(application: Application) : AndroidViewModel(application) {
 
+    companion object {
+        private const val AUTO_SYNC_INTERVAL_MS = 10 * 60 * 1000L // 10 minutes
+    }
+
     private val repository = BillingRepository(AppDatabase.getDatabase(application))
 
     private val _selectedInvoice = MutableStateFlow<InvoiceEntity?>(null)
@@ -170,6 +174,43 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = BillingUiState()
     )
+
+    init {
+        startAutoSyncLoop()
+    }
+
+    /**
+     * Keeps Mercado Pago movements (payments + transfers) up to date without
+     * the merchant having to remember to tap "Sincronizar". Runs only while
+     * this ViewModel/app process is alive — Android enforces a 15-minute
+     * floor on WorkManager's PeriodicWorkRequest, so a real background job
+     * can't honor a 10-minute cadence; this in-process loop can, at the cost
+     * of pausing whenever the app is killed (it picks back up, and reconciles
+     * the gap, next time it's opened).
+     */
+    private fun startAutoSyncLoop() {
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(AUTO_SYNC_INTERVAL_MS)
+                if (uiState.value.config.isMpConnected) {
+                    autoSyncMercadoPagoMovementsSilently()
+                }
+            }
+        }
+    }
+
+    /**
+     * Same reconciliation as syncMercadoPagoMovements(), but doesn't toggle
+     * isProcessing (no spinner flash every 10 minutes) and only surfaces a
+     * status message when there's actually something new to report.
+     */
+    private suspend fun autoSyncMercadoPagoMovementsSilently() {
+        val result = repository.syncMercadoPagoMovements()
+        val count = result.getOrNull() ?: return
+        if (count > 0) {
+            _statusMessage.value = "Se detectaron $count movimientos nuevos de Mercado Pago"
+        }
+    }
 
     fun selectTab(tab: Int) {
         _activeTab.value = tab
