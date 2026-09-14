@@ -223,7 +223,7 @@ class WsfeBillingService(
                         $serviciosFechas
                         <MonId>${req.monId}</MonId>
                         <MonCotiz>${String.format(Locale.US, "%.1f", req.monCotiz)}</MonCotiz>
-                        $cbtesAsocXml
+                        <!-- TEMP DEBUG: CbtesAsoc disabled to isolate the empty-400 cause -->
                         $ivaXml
                       </FECAEDetRequest>
                     </FeDetReq>
