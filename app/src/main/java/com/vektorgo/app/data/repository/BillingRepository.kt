@@ -69,7 +69,7 @@ class BillingRepository(
     /**
      * Receives and processes a payment from Mercado Pago / Mercado Libre.
      */
-    suspend fun processIncomingPayment(payment: MpPaymentDetail): Result<PaymentEntity> = withContext(Dispatchers.IO) {
+    suspend fun processIncomingPayment(payment: MpPaymentDetail, allowAutoInvoice: Boolean = true): Result<PaymentEntity> = withContext(Dispatchers.IO) {
         try {
             val docType = payment.payer.identification?.type ?: "DNI"
             val docNumber = payment.payer.identification?.number ?: ""
@@ -110,8 +110,11 @@ class BillingRepository(
 
             val currentConfig = getConfig()
 
-            // If auto-invoicing is enabled and payment is approved, issue fiscal invoice immediately
-            if (currentConfig.autoInvoiceEnabled && payment.status.equals("approved", ignoreCase = true)) {
+            // If auto-invoicing is enabled and payment is approved, issue fiscal invoice immediately.
+            // allowAutoInvoice=false is how syncMercadoPagoMovements() keeps received transfers
+            // out of this automatic path — they're inserted as PENDING_BILLING for the merchant
+            // to review and invoice manually, since not every transfer received is necessarily a sale.
+            if (allowAutoInvoice && currentConfig.autoInvoiceEnabled && payment.status.equals("approved", ignoreCase = true)) {
                 issueInvoiceForPayment(paymentEntity, currentConfig)
             }
 
@@ -599,17 +602,29 @@ class BillingRepository(
         val movements = searchResult.getOrElse { return@withContext Result.failure(it) }
 
         var newCount = 0
+        var newTransfersCount = 0
         for (movement in movements) {
             if (paymentDao.getPaymentById(movement.id) != null) continue
-            val result = processIncomingPayment(movement)
-            if (result.isSuccess) newCount++
+
+            // Transfers received never auto-invoice: they land as
+            // PENDING_BILLING for the merchant to review and pick which ones
+            // to bill, since a transfer isn't necessarily a sale the way a
+            // QR/Point/Checkout payment is.
+            val isTransfer = movement.operationType == "money_transfer"
+            val result = processIncomingPayment(movement, allowAutoInvoice = !isTransfer)
+            if (result.isSuccess) {
+                newCount++
+                if (isTransfer) newTransfersCount++
+            }
         }
 
         auditLogDao.insertLog(
             AuditLogEntity(
                 eventType = "MP_MOVEMENTS_SYNCED",
                 title = "Sincronización de Mercado Pago",
-                message = "Se revisaron los últimos $daysBack días. $newCount movimientos nuevos incorporados (incluye transferencias).",
+                message = "Se revisaron los últimos $daysBack días. $newCount movimientos nuevos " +
+                    "($newTransfersCount transferencias pendientes de revisión, " +
+                    "${newCount - newTransfersCount} pagos QR/Point facturados automáticamente).",
                 severity = LogSeverity.INFO
             )
         )

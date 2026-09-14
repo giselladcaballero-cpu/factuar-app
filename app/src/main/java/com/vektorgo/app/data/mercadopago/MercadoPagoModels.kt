@@ -45,5 +45,9 @@ data class MpPaymentDetail(
     val statusDetail: String,
     val description: String,
     val payer: MpPayer,
-    val externalReference: String? = null
+    val externalReference: String? = null,
+    // "regular_payment" (QR/Point/Checkout) or "money_transfer" (direct
+    // transfer into the account balance). Determines whether
+    // syncMercadoPagoMovements() is allowed to auto-invoice it.
+    val operationType: String = "regular_payment"
 )

@@ -170,7 +170,18 @@ class MercadoPagoService(
                 if (pageResults == null || pageResults.length() == 0) break
 
                 for (i in 0 until pageResults.length()) {
-                    results.add(parsePaymentJson(pageResults.getJSONObject(i)))
+                    val movement = parsePaymentJson(pageResults.getJSONObject(i))
+                    // Only approved money actually received: regular_payment
+                    // covers QR / Point / Checkout sales, money_transfer
+                    // covers direct transfers into the account. Excludes
+                    // outgoing payments, refunds, rejected/pending/cancelled
+                    // attempts, and other operation types Mercado Pago's
+                    // search can return for this account.
+                    val isRelevantType = movement.operationType == "regular_payment" ||
+                        movement.operationType == "money_transfer"
+                    if (isRelevantType && movement.status.equals("approved", ignoreCase = true)) {
+                        results.add(movement)
+                    }
                 }
 
                 val paging = json.optJSONObject("paging")
@@ -222,7 +233,8 @@ class MercadoPagoService(
             statusDetail = json.optString("status_detail", "accredited"),
             description = json.optString("description", defaultDescription),
             payer = payer,
-            externalReference = json.optString("external_reference")
+            externalReference = json.optString("external_reference"),
+            operationType = operationType
         )
     }
 
