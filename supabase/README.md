@@ -128,6 +128,25 @@ está desactivado en builds de debug a propósito (`BuildConfig.DEBUG`),
 para no bloquear el resto de las pruebas mientras esta cuenta no exista.
 En builds de release el gate funciona de verdad.
 
+## Panel de administración (suscriptores)
+
+Tabla `public.subscribers` en Postgres (RLS habilitado, sin políticas —
+solo las Edge Functions con la service role key pueden leerla/escribirla).
+
+- `functions/register-subscriber/index.ts` — la app la llama después de
+  activar una suscripción (`BillingRepository.activateSubscription`).
+  Guarda/actualiza el registro del comerciante: nombre, CUIT, estado de
+  suscripción, monto.
+- `functions/admin-subscribers/index.ts` — la lee el panel HTML. Protegida
+  por un secret compartido (`ADMIN_PANEL_SECRET`), no por login real —
+  suficiente para una herramienta interna de un solo administrador.
+
+**Paso manual pendiente:** cargar el secret `ADMIN_PANEL_SECRET` en
+Supabase (Project Settings → Edge Functions → Secrets). El valor generado
+para esto se compartió aparte, fuera de este repo — nunca se commitea un
+secret real a git, ni en un doc. Si se rota, hay que actualizarlo también
+en el panel HTML (login del panel).
+
 ## Nota sobre el esquema del deep link
 
 Se mantuvo `factuar://mp-connected` sin cambios a propósito: si se renombra

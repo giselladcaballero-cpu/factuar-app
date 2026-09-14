@@ -33,7 +33,8 @@ class BillingRepository(
     private val wsaaAuthService: WsaaAuthService = WsaaAuthService(),
     private val wsfeBillingService: WsfeBillingService = WsfeBillingService(),
     private val mpService: MercadoPagoService = MercadoPagoService(),
-    private val csrGenerationClient: CsrGenerationClient = CsrGenerationClient()
+    private val csrGenerationClient: CsrGenerationClient = CsrGenerationClient(),
+    private val adminSyncService: com.vektorgo.app.data.admin.AdminSyncService = com.vektorgo.app.data.admin.AdminSyncService()
 ) {
 
     private val paymentDao = database.paymentDao()
@@ -535,6 +536,20 @@ class BillingRepository(
                 message = "Preapproval ID: $preapprovalId | Estado: $status",
                 severity = if (authorized) LogSeverity.SUCCESS else LogSeverity.WARNING
             )
+        )
+
+        // Best-effort: the admin panel's visibility into this merchant
+        // never blocks or reverts their own subscription state on failure.
+        adminSyncService.registerSubscriber(
+            collectorId = updated.mpCollectorId,
+            businessName = updated.razonSocial,
+            cuit = updated.cuitEmisor,
+            email = "",
+            subscriptionId = updated.subscriptionId,
+            subscriptionStatus = updated.subscriptionStatus,
+            subscriptionAmount = 14999.0,
+            environment = updated.environment,
+            appVersion = ""
         )
     }
 

@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.subscription-callback]
 verify_jwt = false
+
+[functions.register-subscriber]
+verify_jwt = false
+
+[functions.admin-subscribers]
+verify_jwt = false
