@@ -144,15 +144,13 @@ class MercadoPagoService(
             val pageSize = 50
 
             while (true) {
-                val url = "$mpApiBase/v1/payments/search".toHttpUrlBuilder()
-                    .addQueryParameter("sort", "date_created")
-                    .addQueryParameter("criteria", "desc")
-                    .addQueryParameter("range", "date_created")
-                    .addQueryParameter("begin_date", "NOW-${daysBack}DAYS")
-                    .addQueryParameter("end_date", "NOW")
-                    .addQueryParameter("offset", offset.toString())
-                    .addQueryParameter("limit", pageSize.toString())
-                    .build()
+                // Every value here is our own constant or a number, never
+                // user-supplied text, so plain interpolation is safe and
+                // sidesteps OkHttp's HttpUrl.Builder API entirely.
+                val url = "$mpApiBase/v1/payments/search" +
+                    "?sort=date_created&criteria=desc&range=date_created" +
+                    "&begin_date=NOW-${daysBack}DAYS&end_date=NOW" +
+                    "&offset=$offset&limit=$pageSize"
 
                 val request = Request.Builder()
                     .url(url)
@@ -186,8 +184,6 @@ class MercadoPagoService(
             Result.failure(e)
         }
     }
-
-    private fun String.toHttpUrlBuilder() = okhttp3.HttpUrl.Companion.toHttpUrl(this).newBuilder()
 
     private fun parsePaymentJson(json: JSONObject): MpPaymentDetail {
         val payerJson = json.optJSONObject("payer")
