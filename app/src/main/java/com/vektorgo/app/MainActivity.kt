@@ -70,6 +70,7 @@ import com.vektorgo.app.ui.screens.ArchitectureGuideScreen
 import com.vektorgo.app.ui.screens.AuditLogsScreen
 import com.vektorgo.app.ui.screens.DashboardScreen
 import com.vektorgo.app.ui.screens.InvoiceDetailScreen
+import com.vektorgo.app.ui.screens.OnboardingScreen
 import com.vektorgo.app.ui.screens.SettingsScreen
 import com.vektorgo.app.ui.screens.SubscriptionPaywallScreen
 import com.vektorgo.app.ui.screens.TransactionsScreen
@@ -193,6 +194,28 @@ fun BillingApp(
     // real in release builds (BuildConfig.DEBUG is false there).
     if (!com.vektorgo.app.BuildConfig.DEBUG && !state.config.isSubscribed) {
         SubscriptionPaywallScreen(onSubscribe = onOpenSubscriptionCheckout)
+        return
+    }
+
+    // Mandatory single screen for both required one-time setups (ARCA +
+    // Mercado Pago) instead of sending a brand new merchant into Ajustes to
+    // find the right cards among unrelated sections. Once both are done,
+    // this never shows again — state.config flips and the tabs below render
+    // normally on the next recomposition.
+    val isArcaActive = state.config.isArcaConnected &&
+        (state.config.certCrtPem.isNotBlank() || state.config.cuitEmisor > 0)
+    if (!isArcaActive || !state.config.isMpConnected) {
+        OnboardingScreen(
+            state = state,
+            onSaveConfig = { viewModel.saveConfig(it) },
+            onOpenAutoProvisioning = { viewModel.openCsrDialog() },
+            onCloseAutoProvisioning = { viewModel.closeCsrDialog() },
+            onGenerateCsr = { cuit, razon -> viewModel.startCsrGeneration(cuit, razon) },
+            onSaveArcaCertificate = { certPem -> viewModel.saveArcaCertificate(certPem) },
+            onOpenMpOAuth = onOpenMpOAuth,
+            onCloseMpOAuth = { viewModel.closeMpTokenDialog() },
+            onConnectMp = { accessToken -> viewModel.connectMercadoPago(accessToken) }
+        )
         return
     }
 

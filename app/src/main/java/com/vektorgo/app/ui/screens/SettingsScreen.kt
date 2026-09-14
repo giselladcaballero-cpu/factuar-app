@@ -188,6 +188,7 @@ fun SettingsScreen(
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
             Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                val isArcaActive = state.config.isArcaConnected && (state.config.certCrtPem.isNotBlank() || state.config.cuitEmisor > 0)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -223,7 +224,6 @@ fun SettingsScreen(
                     }
 
                     // Connection status pill
-                    val isArcaActive = state.config.isArcaConnected && (state.config.certCrtPem.isNotBlank() || state.config.cuitEmisor > 0)
                     Box(
                         modifier = Modifier
                             .background(
