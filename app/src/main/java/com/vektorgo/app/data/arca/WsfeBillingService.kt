@@ -172,14 +172,16 @@ class WsfeBillingService(
         // corrects — required by ARCA, and must appear after MonCotiz and
         // before Iva per the WSFEv1 XSD element order.
         val cbtesAsocXml = if (req.cbtesAsociados.isNotEmpty()) {
+            // Cuit/CbteFch are only needed when the associated comprobante was
+            // issued by a different CUIT than the one making this request —
+            // sending them for a same-emisor credit note made ARCA reject the
+            // whole request with an empty HTTP 400 instead of a SOAP fault.
             val items = req.cbtesAsociados.joinToString("\n") { asoc ->
                 """
                 <CbteAsoc>
                     <Tipo>${asoc.tipo}</Tipo>
                     <PtoVta>${asoc.ptoVta}</PtoVta>
                     <Nro>${asoc.nro}</Nro>
-                    <Cuit>${asoc.cuit}</Cuit>
-                    ${asoc.cbteFch?.let { "<CbteFch>$it</CbteFch>" } ?: ""}
                 </CbteAsoc>
                 """.trimIndent()
             }
