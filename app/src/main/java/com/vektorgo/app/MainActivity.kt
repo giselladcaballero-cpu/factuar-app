@@ -330,6 +330,7 @@ fun BillingApp(
                     onConnectMp = { accessToken ->
                         viewModel.connectMercadoPago(accessToken)
                     },
+                    onSyncMpMovements = { viewModel.syncMercadoPagoMovements() },
                     onDisconnectMp = { viewModel.disconnectMercadoPago() },
                     onDisconnectArca = { viewModel.disconnectArca() }
                 )

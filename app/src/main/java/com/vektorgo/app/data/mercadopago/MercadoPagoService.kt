@@ -116,45 +116,118 @@ class MercadoPagoService(
             val responseBody = response.body?.string() ?: ""
 
             if (response.isSuccessful && responseBody.isNotEmpty()) {
-                val json = JSONObject(responseBody)
-                val payerJson = json.optJSONObject("payer")
-                val identJson = payerJson?.optJSONObject("identification")
-
-                val payer = MpPayer(
-                    email = payerJson?.optString("email") ?: "cliente@mercadolibre.com.ar",
-                    firstName = payerJson?.optString("first_name"),
-                    lastName = payerJson?.optString("last_name"),
-                    identification = if (identJson != null && identJson.has("number")) {
-                        MpPayerIdentification(
-                            type = identJson.optString("type", "DNI"),
-                            number = identJson.optString("number")
-                        )
-                    } else null
-                )
-
-                val detail = MpPaymentDetail(
-                    id = json.getLong("id"),
-                    collectorId = json.optLong("collector_id", 123456789L),
-                    dateApproved = json.optString("date_approved", SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US).format(Date())),
-                    dateCreated = json.optString("date_created", SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US).format(Date())),
-                    transactionAmount = json.getDouble("transaction_amount"),
-                    netReceivedAmount = json.optDouble("net_received_amount", json.getDouble("transaction_amount") * 0.94),
-                    currencyId = json.optString("currency_id", "ARS"),
-                    paymentMethodId = json.optString("payment_method_id", "account_money"),
-                    paymentTypeId = json.optString("payment_type_id", "account_money"),
-                    status = json.getString("status"),
-                    statusDetail = json.optString("status_detail", "accredited"),
-                    description = json.optString("description", "Venta Mercado Pago"),
-                    payer = payer,
-                    externalReference = json.optString("external_reference")
-                )
-                return@withContext Result.success(detail)
+                return@withContext Result.success(parsePaymentJson(JSONObject(responseBody)))
             } else {
                 return@withContext Result.failure(Exception("HTTP ${response.code}: $responseBody"))
             }
         } catch (e: Exception) {
             return@withContext Result.failure(e)
         }
+    }
+
+    /**
+     * Brings in every money movement credited to the account — not just the
+     * payments that arrive via webhook (QR / Point / Checkout), but also
+     * direct transfers into the account balance, which Mercado Pago models
+     * as payments too (operation_type = "money_transfer") but doesn't always
+     * fire the same webhook topic for. Used as a periodic/manual reconcile
+     * so nothing gets missed if a webhook notification is dropped or was
+     * never configured for that event type.
+     *
+     * `daysBack` bounds the search window; Mercado Pago's relative date
+     * syntax (NOW-#DAYS) avoids having to format timezone-aware timestamps.
+     */
+    suspend fun searchAllMovements(accessToken: String, daysBack: Int = 30): Result<List<MpPaymentDetail>> = withContext(Dispatchers.IO) {
+        try {
+            val results = mutableListOf<MpPaymentDetail>()
+            var offset = 0
+            val pageSize = 50
+
+            while (true) {
+                val url = "$mpApiBase/v1/payments/search".toHttpUrlBuilder()
+                    .addQueryParameter("sort", "date_created")
+                    .addQueryParameter("criteria", "desc")
+                    .addQueryParameter("range", "date_created")
+                    .addQueryParameter("begin_date", "NOW-${daysBack}DAYS")
+                    .addQueryParameter("end_date", "NOW")
+                    .addQueryParameter("offset", offset.toString())
+                    .addQueryParameter("limit", pageSize.toString())
+                    .build()
+
+                val request = Request.Builder()
+                    .url(url)
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .get()
+                    .build()
+
+                val response = httpClient.newCall(request).execute()
+                val responseBody = response.body?.string() ?: ""
+
+                if (!response.isSuccessful) {
+                    return@withContext Result.failure(Exception("HTTP ${response.code}: $responseBody"))
+                }
+
+                val json = JSONObject(responseBody)
+                val pageResults = json.optJSONArray("results")
+                if (pageResults == null || pageResults.length() == 0) break
+
+                for (i in 0 until pageResults.length()) {
+                    results.add(parsePaymentJson(pageResults.getJSONObject(i)))
+                }
+
+                val paging = json.optJSONObject("paging")
+                val total = paging?.optInt("total", results.size) ?: results.size
+                offset += pageResults.length()
+                if (offset >= total || pageResults.length() < pageSize) break
+            }
+
+            Result.success(results)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun String.toHttpUrlBuilder() = okhttp3.HttpUrl.parse(this)!!.newBuilder()
+
+    private fun parsePaymentJson(json: JSONObject): MpPaymentDetail {
+        val payerJson = json.optJSONObject("payer")
+        val identJson = payerJson?.optJSONObject("identification")
+
+        val payer = MpPayer(
+            email = payerJson?.optString("email") ?: "cliente@mercadolibre.com.ar",
+            firstName = payerJson?.optString("first_name"),
+            lastName = payerJson?.optString("last_name"),
+            identification = if (identJson != null && identJson.has("number")) {
+                MpPayerIdentification(
+                    type = identJson.optString("type", "DNI"),
+                    number = identJson.optString("number")
+                )
+            } else null
+        )
+
+        val operationType = json.optString("operation_type", "regular_payment")
+        val defaultDescription = if (operationType == "money_transfer") {
+            "Transferencia recibida"
+        } else {
+            "Venta Mercado Pago"
+        }
+
+        return MpPaymentDetail(
+            id = json.getLong("id"),
+            collectorId = json.optLong("collector_id", 123456789L),
+            dateApproved = json.optString("date_approved", SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US).format(Date())),
+            dateCreated = json.optString("date_created", SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US).format(Date())),
+            transactionAmount = json.getDouble("transaction_amount"),
+            netReceivedAmount = json.optDouble("net_received_amount", json.getDouble("transaction_amount") * 0.94),
+            currencyId = json.optString("currency_id", "ARS"),
+            paymentMethodId = json.optString("payment_method_id", "account_money"),
+            paymentTypeId = json.optString("payment_type_id", "account_money"),
+            status = json.getString("status"),
+            statusDetail = json.optString("status_detail", "accredited"),
+            description = json.optString("description", defaultDescription),
+            payer = payer,
+            externalReference = json.optString("external_reference")
+        )
     }
 
     /**

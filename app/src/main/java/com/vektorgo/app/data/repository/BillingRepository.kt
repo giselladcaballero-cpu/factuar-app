@@ -579,6 +579,44 @@ class BillingRepository(
         return@withContext if (result.success) Result.success(result) else Result.failure(Exception(result.errorMessage ?: "Fallo WSAA"))
     }
 
+    /**
+     * Reconciles against Mercado Pago's own record of every credited
+     * movement (payments.search), not just what arrived via webhook. Covers
+     * direct transfers into the account balance, which the webhook relay
+     * doesn't always notify for, and anything a dropped/delayed webhook
+     * missed. Skips ids already known locally so it never re-runs
+     * auto-invoicing on a payment that's already been processed.
+     *
+     * Returns how many new movements were ingested.
+     */
+    suspend fun syncMercadoPagoMovements(daysBack: Int = 30): Result<Int> = withContext(Dispatchers.IO) {
+        val currentConfig = getConfig()
+        if (!currentConfig.isMpConnected || currentConfig.mpAccessToken.isBlank()) {
+            return@withContext Result.failure(Exception("Conectá tu cuenta de Mercado Pago antes de sincronizar."))
+        }
+
+        val searchResult = mpService.searchAllMovements(currentConfig.mpAccessToken, daysBack)
+        val movements = searchResult.getOrElse { return@withContext Result.failure(it) }
+
+        var newCount = 0
+        for (movement in movements) {
+            if (paymentDao.getPaymentById(movement.id) != null) continue
+            val result = processIncomingPayment(movement)
+            if (result.isSuccess) newCount++
+        }
+
+        auditLogDao.insertLog(
+            AuditLogEntity(
+                eventType = "MP_MOVEMENTS_SYNCED",
+                title = "Sincronización de Mercado Pago",
+                message = "Se revisaron los últimos $daysBack días. $newCount movimientos nuevos incorporados (incluye transferencias).",
+                severity = LogSeverity.INFO
+            )
+        )
+
+        Result.success(newCount)
+    }
+
     suspend fun retryPendingPayments(): Int = withContext(Dispatchers.IO) {
         val pending = paymentDao.getPendingOrErrorPayments()
         val currentConfig = getConfig()

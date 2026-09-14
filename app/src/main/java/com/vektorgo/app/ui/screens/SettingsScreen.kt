@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.Button
@@ -95,6 +96,7 @@ fun SettingsScreen(
     onOpenMpManual: () -> Unit,
     onCloseMpOAuth: () -> Unit,
     onConnectMp: (accessToken: String) -> Unit,
+    onSyncMpMovements: () -> Unit,
     onDisconnectMp: () -> Unit,
     onDisconnectArca: () -> Unit,
     modifier: Modifier = Modifier
@@ -542,6 +544,22 @@ fun SettingsScreen(
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp
                     )
+                }
+
+                if (state.config.isMpConnected) {
+                    OutlinedButton(
+                        onClick = onSyncMpMovements,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            "Sincronizar Movimientos (pagos y transferencias)",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
 
                 // Manual fallback (accountants / troubleshooting)

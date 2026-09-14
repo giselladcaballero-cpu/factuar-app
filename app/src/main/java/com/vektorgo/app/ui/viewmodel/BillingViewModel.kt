@@ -269,6 +269,21 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun syncMercadoPagoMovements() {
+        viewModelScope.launch {
+            _isProcessing.value = true
+            _statusMessage.value = "Sincronizando movimientos de Mercado Pago (pagos y transferencias)..."
+            val result = repository.syncMercadoPagoMovements()
+            _isProcessing.value = false
+            _statusMessage.value = if (result.isSuccess) {
+                val count = result.getOrDefault(0)
+                if (count > 0) "Se incorporaron $count movimientos nuevos de Mercado Pago" else "Ya estabas al día, no había movimientos nuevos"
+            } else {
+                "Error sincronizando Mercado Pago: ${result.exceptionOrNull()?.message}"
+            }
+        }
+    }
+
     fun testWsaaConnection() {
         viewModelScope.launch {
             _isProcessing.value = true
