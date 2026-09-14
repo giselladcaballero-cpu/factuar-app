@@ -446,6 +446,17 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun completeSubscriptionActivation(preapprovalId: String, status: String) {
+        viewModelScope.launch {
+            repository.activateSubscription(preapprovalId, status)
+            _statusMessage.value = if (status.equals("authorized", ignoreCase = true)) {
+                "¡Suscripción activada! Ya podés usar Vektor Go sin límites."
+            } else {
+                "La suscripción no quedó autorizada (estado: $status). Volvé a intentarlo desde Ajustes."
+            }
+        }
+    }
+
     fun connectMercadoPago(accessToken: String) {
         viewModelScope.launch {
             _mpConnectUiState.update { it.copy(isConnecting = true, error = null) }

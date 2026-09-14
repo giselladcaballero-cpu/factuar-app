@@ -33,7 +33,8 @@ class BillingRepository(
     private val wsaaAuthService: WsaaAuthService = WsaaAuthService(),
     private val wsfeBillingService: WsfeBillingService = WsfeBillingService(),
     private val mpService: MercadoPagoService = MercadoPagoService(),
-    private val csrGenerationClient: CsrGenerationClient = CsrGenerationClient()
+    private val csrGenerationClient: CsrGenerationClient = CsrGenerationClient(),
+    private val adminSyncService: com.vektorgo.app.data.admin.AdminSyncService = com.vektorgo.app.data.admin.AdminSyncService()
 ) {
 
     private val paymentDao = database.paymentDao()
@@ -516,6 +517,45 @@ class BillingRepository(
             )
             Result.failure(e)
         }
+    }
+
+    /**
+     * Records the result of a Vektor Go subscription checkout. isSubscribed
+     * only becomes true for "authorized" — no free trial, no optimistic
+     * unlock while pending. Any other status (pending, cancelled, paused,
+     * rejected) leaves the app gated behind the paywall.
+     */
+    suspend fun activateSubscription(preapprovalId: String, status: String) = withContext(Dispatchers.IO) {
+        val current = getConfig()
+        val authorized = status.equals("authorized", ignoreCase = true)
+        val updated = current.copy(
+            isSubscribed = authorized,
+            subscriptionId = preapprovalId,
+            subscriptionStatus = status.uppercase()
+        )
+        configDao.insertOrUpdateConfig(updated)
+        auditLogDao.insertLog(
+            AuditLogEntity(
+                eventType = if (authorized) "SUBSCRIPTION_ACTIVATED" else "SUBSCRIPTION_NOT_AUTHORIZED",
+                title = if (authorized) "Suscripción de Vektor Go Activada" else "Suscripción no autorizada",
+                message = "Preapproval ID: $preapprovalId | Estado: $status",
+                severity = if (authorized) LogSeverity.SUCCESS else LogSeverity.WARNING
+            )
+        )
+
+        // Best-effort: the admin panel's visibility into this merchant
+        // never blocks or reverts their own subscription state on failure.
+        adminSyncService.registerSubscriber(
+            collectorId = updated.mpCollectorId,
+            businessName = updated.razonSocial,
+            cuit = updated.cuitEmisor,
+            email = "",
+            subscriptionId = updated.subscriptionId,
+            subscriptionStatus = updated.subscriptionStatus,
+            subscriptionAmount = 14999.0,
+            environment = updated.environment,
+            appVersion = ""
+        )
     }
 
     /**

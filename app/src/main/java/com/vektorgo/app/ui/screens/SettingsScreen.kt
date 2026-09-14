@@ -188,6 +188,7 @@ fun SettingsScreen(
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
             Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                val isArcaActive = state.config.isArcaConnected && (state.config.certCrtPem.isNotBlank() || state.config.cuitEmisor > 0)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -223,7 +224,6 @@ fun SettingsScreen(
                     }
 
                     // Connection status pill
-                    val isArcaActive = state.config.isArcaConnected && (state.config.certCrtPem.isNotBlank() || state.config.cuitEmisor > 0)
                     Box(
                         modifier = Modifier
                             .background(
@@ -281,6 +281,44 @@ fun SettingsScreen(
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
+                    }
+                }
+
+                // Always-visible 2-step guide for merchants who haven't set
+                // up ARCA yet. Before this, the app only explained the
+                // certificate — the Punto de Venta step (a separate, required,
+                // one-time setup on ARCA's own site) was never mentioned in
+                // the guided flow, only shown after the fact as a summary
+                // line once already connected. That silence is exactly what
+                // produces "El punto de venta no se encuentra habilitado a
+                // usar en el presente WS" from ARCA later on.
+                if (!isArcaActive) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(ArcaBlue.copy(alpha = 0.06f), RoundedCornerShape(12.dp))
+                            .border(1.dp, ArcaBlue.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = "Antes de facturar, hacé esto UNA sola vez en ARCA:",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        DelegationStepRow(
+                            1,
+                            "Dar de alta el Punto de Venta N° 100: entrá a arca.gob.ar con tu Clave Fiscal → " +
+                                "\"Puntos de Venta y Domicilios\" → Nuevo → poné el número 100 → Sistema: \"WSFE - Web Services\". " +
+                                "No elijas \"Facturador Móvil\" ni \"Controlador Fiscal\", ARCA rechaza las facturas si el sistema no es este. " +
+                                "El campo \"Punto Venta\" de Parámetros Fiscales ya viene con 100 cargado."
+                        )
+                        DelegationStepRow(
+                            2,
+                            "Generar tu Certificado Digital: tocá el botón de abajo. La app arma la clave " +
+                                "y el pedido de certificado (CSR); vos subís ese archivo a ARCA con tu Clave Fiscal y " +
+                                "pegás acá el certificado que te entregan."
+                        )
                     }
                 }
 
