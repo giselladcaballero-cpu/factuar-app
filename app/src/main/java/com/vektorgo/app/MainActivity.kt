@@ -93,6 +93,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleMpOAuthIntent(intent)
+        // KEEP: safe to call on every launch, never resets or duplicates the
+        // already-scheduled periodic job.
+        com.vektorgo.app.work.MpSyncWorker.schedule(applicationContext)
         setContent {
             VektorGoTheme {
                 BillingApp(viewModel = viewModel, onOpenMpOAuth = { openMercadoPagoOAuth() })
