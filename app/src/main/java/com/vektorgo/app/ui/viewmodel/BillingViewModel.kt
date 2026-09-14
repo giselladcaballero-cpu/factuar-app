@@ -363,7 +363,7 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
     fun startCsrGeneration(cuit: Long, razonSocial: String) {
         viewModelScope.launch {
             _csrUiState.update {
-                it.copy(isGenerating = true, error = null, isReady = false, isSaved = false)
+                it.copy(showDialog = true, isGenerating = true, error = null, isReady = false, isSaved = false)
             }
 
             repository.generateArcaCsr(cuit, razonSocial).collect { status ->
@@ -418,15 +418,32 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
             // them), they see that right away instead of only when billing.
             _wsaaStatus.value = "PROBANDO..."
             val result = repository.testWsaaAuth()
-            _isProcessing.value = false
-            if (result.isSuccess) {
-                _wsaaStatus.value = "CONECTADO (${uiState.value.config.environment})"
-                _statusMessage.value = "Certificado guardado y conexión con ARCA confirmada."
-            } else {
+            if (result.isFailure) {
+                _isProcessing.value = false
                 _wsaaStatus.value = "ERROR"
                 _statusMessage.value = "Certificado guardado, pero ARCA todavía lo rechaza: " +
                     "${result.exceptionOrNull()?.message}. Revisá que hayas asociado el alias al " +
                     "servicio WSFE en 'Administrador de Relaciones' de ARCA."
+                return@launch
+            }
+            _wsaaStatus.value = "CONECTADO (${uiState.value.config.environment})"
+
+            // WSAA login worked -- now confirm the Punto de Venta itself is
+            // really usable, instead of trusting the manual ARCA step went
+            // well. Catches a wrong system choice ("Facturador Móvil" instead
+            // of "WSFE - Web Services") right here, not at the first invoice.
+            val ptoVentaResult = repository.checkPuntoVenta()
+            _isProcessing.value = false
+            val ptoVenta = uiState.value.config.puntoVenta
+            _statusMessage.value = when {
+                ptoVentaResult.isFailure ->
+                    "Certificado guardado y ARCA lo acepta, pero no pudimos confirmar el Punto de " +
+                        "Venta $ptoVenta: ${ptoVentaResult.exceptionOrNull()?.message}"
+                ptoVentaResult.getOrNull()?.errorMessage != null ->
+                    "Certificado guardado y ARCA lo acepta, pero el Punto de Venta $ptoVenta: " +
+                        ptoVentaResult.getOrNull()?.errorMessage
+                else ->
+                    "Certificado guardado, conexión con ARCA confirmada y Punto de Venta $ptoVenta verificado."
             }
         }
     }

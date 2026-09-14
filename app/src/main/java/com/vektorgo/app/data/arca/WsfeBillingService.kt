@@ -80,6 +80,91 @@ class WsfeBillingService(
     }
 
     /**
+     * Queries FEParamGetPtosVenta to confirm a Punto de Venta is really
+     * usable before the merchant ever tries to bill with it. The onboarding
+     * flow only asks the user to create it manually in ARCA (there's no
+     * public API to do it for them) — this is the closest thing to a
+     * verification of that manual step: it catches a wrong system choice
+     * ("Facturador Móvil"/"Controlador Fiscal" instead of "WSFE - Web
+     * Services") or a Punto de Venta that doesn't exist yet, right after the
+     * certificate is saved instead of at the first real invoice attempt.
+     */
+    suspend fun checkPuntoVenta(
+        auth: WsfeAuth,
+        ptoVta: Int,
+        isProduction: Boolean
+    ): PuntoVentaCheckResult = withContext(Dispatchers.IO) {
+        val endpoint = if (isProduction) wsfeProdUrl else wsfeHomoUrl
+        val soapPayload = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+              <soap:Body>
+                <FEParamGetPtosVenta xmlns="http://ar.gov.afip.dif.FEV1/">
+                  <Auth>
+                    <Token>${auth.token}</Token>
+                    <Sign>${auth.sign}</Sign>
+                    <Cuit>${auth.cuit}</Cuit>
+                  </Auth>
+                </FEParamGetPtosVenta>
+              </soap:Body>
+            </soap:Envelope>
+        """.trimIndent()
+
+        val requestBody = soapPayload.toRequestBody("text/xml; charset=utf-8".toMediaType())
+        val request = Request.Builder()
+            .url(endpoint)
+            .post(requestBody)
+            .addHeader("SOAPAction", "http://ar.gov.afip.dif.FEV1/FEParamGetPtosVenta")
+            .build()
+
+        val response = httpClient.newCall(request).execute()
+        val responseBody = response.body?.string() ?: ""
+
+        if (!response.isSuccessful) {
+            return@withContext PuntoVentaCheckResult(
+                exists = false,
+                errorMessage = "ARCA respondió HTTP ${response.code} al consultar Puntos de Venta: " +
+                    extractSoapFault(responseBody).ifBlank { responseBody.take(500) }
+            )
+        }
+
+        val errores = extractErrores(responseBody)
+        if (errores.isNotEmpty()) {
+            return@withContext PuntoVentaCheckResult(
+                exists = false,
+                errorMessage = "ARCA rechazó la consulta de Puntos de Venta: ${errores.joinToString(" | ")}"
+            )
+        }
+
+        // Each <PtoVenta> block looks like:
+        // <Nro>100</Nro><EmisionTipo>CAE</EmisionTipo><Bloqueado>N</Bloqueado><FchBaja/>
+        val match = responseBody.split("<PtoVenta>").drop(1)
+            .map { it.substringBefore("</PtoVenta>") }
+            .firstOrNull { it.substringAfter("<Nro>", "").substringBefore("</Nro>").trim() == ptoVta.toString() }
+            ?: return@withContext PuntoVentaCheckResult(
+                exists = false,
+                errorMessage = "El Punto de Venta $ptoVta no figura dado de alta en ARCA para este CUIT."
+            )
+
+        val emisionTipo = match.substringAfter("<EmisionTipo>", "").substringBefore("</EmisionTipo>").trim()
+        val bloqueado = match.substringAfter("<Bloqueado>", "").substringBefore("</Bloqueado>").trim()
+            .equals("S", ignoreCase = true)
+
+        PuntoVentaCheckResult(
+            exists = true,
+            emisionTipo = emisionTipo,
+            bloqueado = bloqueado,
+            errorMessage = when {
+                bloqueado -> "El Punto de Venta $ptoVta está bloqueado en ARCA."
+                emisionTipo.isNotBlank() && emisionTipo != "CAE" ->
+                    "El Punto de Venta $ptoVta está dado de alta como \"$emisionTipo\" en vez de " +
+                        "\"WSFE - Web Services\". Hay que recrearlo en ARCA con el sistema correcto."
+                else -> null
+            }
+        )
+    }
+
+    /**
      * Builds and transmits FECAESolicitar to ARCA (ex AFIP) WSFE v1.
      */
     suspend fun solicitarCae(

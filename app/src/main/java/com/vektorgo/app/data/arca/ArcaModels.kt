@@ -70,3 +70,15 @@ data class WsaaTicketResult(
     val expirationTimeMillis: Long = 0L,
     val errorMessage: String? = null
 )
+
+/**
+ * Result of checking a Punto de Venta against ARCA's own records via
+ * FEParamGetPtosVenta, instead of trusting the user did the manual
+ * "Puntos de Venta y Domicilios" step correctly.
+ */
+data class PuntoVentaCheckResult(
+    val exists: Boolean,
+    val emisionTipo: String? = null,
+    val bloqueado: Boolean = false,
+    val errorMessage: String? = null
+)

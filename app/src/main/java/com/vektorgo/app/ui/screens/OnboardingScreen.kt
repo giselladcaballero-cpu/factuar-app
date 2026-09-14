@@ -180,14 +180,18 @@ fun OnboardingScreen(
 
                     Button(
                         onClick = {
+                            val cuit = cuitText.toLongOrNull() ?: 0L
                             onSaveConfig(
                                 state.config.copy(
-                                    cuitEmisor = cuitText.toLongOrNull() ?: 0L,
+                                    cuitEmisor = cuit,
                                     razonSocial = razonSocial,
                                     puntoVenta = puntoVentaText.toIntOrNull() ?: 100
                                 )
                             )
-                            onOpenAutoProvisioning()
+                            // Goes straight to generating the CSR with the CUIT/Razón
+                            // Social just typed above -- the dialog no longer asks
+                            // for them again, it opens itself once generation starts.
+                            onGenerateCsr(cuit, razonSocial)
                         },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),

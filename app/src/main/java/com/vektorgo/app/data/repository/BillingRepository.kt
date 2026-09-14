@@ -7,6 +7,7 @@ import com.vektorgo.app.data.arca.CsrGenerationClient
 import com.vektorgo.app.data.arca.CsrGenerationStatus
 import com.vektorgo.app.data.arca.WsaaAuthService
 import com.vektorgo.app.data.arca.WsaaTicketResult
+import com.vektorgo.app.data.arca.PuntoVentaCheckResult
 import com.vektorgo.app.data.arca.WsfeAuth
 import com.vektorgo.app.data.arca.WsfeBillingService
 import com.vektorgo.app.data.arca.WsfeVoucherRequest
@@ -625,6 +626,23 @@ class BillingRepository(
             )
         }
         return@withContext if (result.success) Result.success(result) else Result.failure(Exception(result.errorMessage ?: "Fallo WSAA"))
+    }
+
+    /**
+     * Confirms the configured Punto de Venta is really active and WSFE-enabled
+     * in ARCA, instead of trusting that the user's manual "Puntos de Venta y
+     * Domicilios" step went well. Needs a fresh WSAA ticket, so it implicitly
+     * re-validates the certificate too.
+     */
+    suspend fun checkPuntoVenta(): Result<PuntoVentaCheckResult> = withContext(Dispatchers.IO) {
+        val currentConfig = getConfig()
+        val ticket = wsaaAuthService.obtainAccessTicket(currentConfig)
+        if (!ticket.success) {
+            return@withContext Result.failure(Exception(ticket.errorMessage ?: "Fallo WSAA"))
+        }
+        val auth = WsfeAuth(token = ticket.token, sign = ticket.sign, cuit = currentConfig.cuitEmisor)
+        val isProduction = currentConfig.environment.equals("PRODUCCION", ignoreCase = true)
+        Result.success(wsfeBillingService.checkPuntoVenta(auth, currentConfig.puntoVenta, isProduction))
     }
 
     /**
