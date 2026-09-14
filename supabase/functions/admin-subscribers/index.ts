@@ -1,9 +1,12 @@
-// Read-only endpoint for the admin panel HTML page. Gated by a shared
-// secret (ADMIN_PANEL_SECRET, a Supabase secret) instead of real user
-// auth -- adequate for a single-admin internal tool, not for a
-// multi-operator product. Uses the service role key to read past RLS,
-// same reasoning as register-subscriber: nothing public talks to Postgres
-// directly.
+// Read-only endpoint for the admin panel HTML page.
+//
+// TEMPORARY: the ADMIN_PANEL_SECRET gate is disabled below (commented out)
+// while there are no real subscribers yet and the panel is being set up.
+// Re-enable it before this table has real merchant data -- uncomment the
+// check and set ADMIN_PANEL_SECRET as a Supabase secret.
+//
+// Uses the service role key to read past RLS: nothing public gets direct
+// Postgres access, only this function.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -27,11 +30,11 @@ function cors(body: unknown, status = 200): Response {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return cors({});
 
-  const expected = Deno.env.get("ADMIN_PANEL_SECRET");
-  const provided = req.headers.get("x-admin-secret");
-  if (!expected || provided !== expected) {
-    return cors({ error: "No autorizado" }, 401);
-  }
+  // const expected = Deno.env.get("ADMIN_PANEL_SECRET");
+  // const provided = req.headers.get("x-admin-secret");
+  // if (!expected || provided !== expected) {
+  //   return cors({ error: "No autorizado" }, 401);
+  // }
 
   const { data, error } = await supabase
     .from("subscribers")
