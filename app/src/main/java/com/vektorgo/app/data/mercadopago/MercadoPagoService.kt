@@ -137,7 +137,7 @@ class MercadoPagoService(
      * `daysBack` bounds the search window; Mercado Pago's relative date
      * syntax (NOW-#DAYS) avoids having to format timezone-aware timestamps.
      */
-    suspend fun searchAllMovements(accessToken: String, daysBack: Int = 30): Result<List<MpPaymentDetail>> = withContext(Dispatchers.IO) {
+    suspend fun searchAllMovements(accessToken: String, ownCollectorId: Long, daysBack: Int = 30): Result<List<MpPaymentDetail>> = withContext(Dispatchers.IO) {
         try {
             val results = mutableListOf<MpPaymentDetail>()
             var offset = 0
@@ -171,15 +171,21 @@ class MercadoPagoService(
 
                 for (i in 0 until pageResults.length()) {
                     val movement = parsePaymentJson(pageResults.getJSONObject(i))
-                    // Only approved money actually received: regular_payment
-                    // covers QR / Point / Checkout sales, money_transfer
-                    // covers direct transfers into the account. Excludes
-                    // outgoing payments, refunds, rejected/pending/cancelled
-                    // attempts, and other operation types Mercado Pago's
-                    // search can return for this account.
+                    // Only approved money actually RECEIVED by this account:
+                    // - collectorId must be this account's own id. operation_type
+                    //   alone isn't enough — a money_transfer can be one this
+                    //   account SENT (e.g. paying a supplier), which Mercado
+                    //   Pago's search also returns for this token; only
+                    //   collectorId tells direction.
+                    // - regular_payment (QR/Point/Checkout) is always inbound
+                    //   for the collector by definition, so this check is a
+                    //   no-op for those but still correct.
+                    // - excludes refunds, rejected/pending/cancelled attempts,
+                    //   and other operation types.
                     val isRelevantType = movement.operationType == "regular_payment" ||
                         movement.operationType == "money_transfer"
-                    if (isRelevantType && movement.status.equals("approved", ignoreCase = true)) {
+                    val isReceivedByThisAccount = movement.collectorId == ownCollectorId
+                    if (isRelevantType && isReceivedByThisAccount && movement.status.equals("approved", ignoreCase = true)) {
                         results.add(movement)
                     }
                 }

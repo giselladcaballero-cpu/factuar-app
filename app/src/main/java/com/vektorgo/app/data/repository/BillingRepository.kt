@@ -598,7 +598,7 @@ class BillingRepository(
             return@withContext Result.failure(Exception("Conectá tu cuenta de Mercado Pago antes de sincronizar."))
         }
 
-        val searchResult = mpService.searchAllMovements(currentConfig.mpAccessToken, daysBack)
+        val searchResult = mpService.searchAllMovements(currentConfig.mpAccessToken, currentConfig.mpCollectorId, daysBack)
         val movements = searchResult.getOrElse { return@withContext Result.failure(it) }
 
         var newCount = 0
