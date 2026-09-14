@@ -54,7 +54,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -97,7 +99,12 @@ class MainActivity : ComponentActivity() {
         com.vektorgo.app.work.MpSyncWorker.schedule(applicationContext)
         setContent {
             VektorGoTheme {
-                BillingApp(viewModel = viewModel, onOpenMpOAuth = { openMercadoPagoOAuth() })
+                var showSplash by remember { mutableStateOf(true) }
+                if (showSplash) {
+                    com.vektorgo.app.ui.screens.VektorSplashScreen(onFinished = { showSplash = false })
+                } else {
+                    BillingApp(viewModel = viewModel, onOpenMpOAuth = { openMercadoPagoOAuth() })
+                }
             }
         }
     }
